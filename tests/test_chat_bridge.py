@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import AsyncMock
 from xcore_discord_bot.redis_bus import RedisBus
 from xcore_discord_bot.settings import Settings
-from xcore_discord_bot.contracts import GameChatMessage
+from xcore_discord_bot.contracts import ChatMessageV1
 
 
 @pytest.fixture
@@ -103,7 +103,7 @@ async def test_consume_game_chat_allows_server_producer(settings, mock_redis):
         pass
 
     callback.assert_called_once_with(
-        GameChatMessage(author_name="Player", message="Hi", server="test-server")
+        ChatMessageV1(authorName="Player", message="Hi", server="test-server")
     )
     mock_redis.xack.assert_called_once_with(
         b"xcore:evt:chat:message",

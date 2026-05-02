@@ -5,7 +5,14 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING
 
-from .contracts import EventType, ServerHeartbeatEvent
+from .contracts import (
+    ChatGlobalV1,
+    ChatMessageV1,
+    LEGACY_HEARTBEAT_EVENT_TYPES,
+    ServerHeartbeatV1,
+    VoteKickParticipant,
+    parse_server_heartbeat_payload,
+)
 from .handlers_moderation import post_ban_log, post_mute_log, post_vote_kick_log
 from .registry import server_registry
 from .retry import retry_reconnect_bus
@@ -14,23 +21,52 @@ from .service_protocols import ConsumerRecoveryService, PlayerLookupService
 if TYPE_CHECKING:
     from .bot import XCoreDiscordBot
     from .contracts import (
-        BanEvent,
-        GameChatMessage,
-        GlobalChatEvent,
-        MuteEvent,
-        PlayerJoinLeaveEvent,
+        ModerationBanCreatedV1,
+        ModerationMuteCreatedV1,
+        ModerationVoteKickCreatedV1,
+        PlayerJoinLeaveV1,
         RawEvent,
-        ServerActionEvent,
-        ServerHeartbeatEvent,
-        VoteKickEvent,
+        ServerActionV1,
     )
 
 
 logger = logging.getLogger(__name__)
 
 
+def _expiration_value(expiration) -> str | None:
+    if expiration is None:
+        return None
+    expires_at = str(expiration.expiresAt or "").strip()
+    return expires_at or None
+
+
+def _to_legacy_vote_kick_participant(participant) -> VoteKickParticipant:
+    return VoteKickParticipant(
+        name=participant.playerName,
+        pid=participant.playerPid,
+        discord_id=participant.discordId,
+    )
+
+
+def _resolve_vote_kick_starter_pid(event: "ModerationVoteKickCreatedV1") -> int | None:
+    participants = [*(event.votesFor or ()), *(event.votesAgainst or ())]
+    actor_name = event.actor.actorName
+    actor_discord_id = str(event.actor.actorDiscordId or "").strip() or None
+
+    for participant in participants:
+        participant_discord_id = str(participant.discordId or "").strip() or None
+        if actor_discord_id is not None and participant_discord_id == actor_discord_id:
+            return participant.playerPid
+        if participant.playerName == actor_name:
+            return participant.playerPid
+
+    return None
+
+
 async def _player_pid_for_uuid(store: PlayerLookupService, uuid: str | None) -> int:
     if not uuid:
+        return -1
+    if uuid.startswith("legacy:"):
         return -1
 
     player = await store.find_player_by_uuid(uuid)
@@ -41,7 +77,7 @@ async def _player_pid_for_uuid(store: PlayerLookupService, uuid: str | None) -> 
 
 
 async def consume_game_chat(bot: "XCoreDiscordBot") -> None:
-    async def dispatch(event: GameChatMessage) -> None:
+    async def dispatch(event: ChatMessageV1) -> None:
         channel_id = bot._channel_id_for_server(event.server, context="game chat")
         if channel_id is None:
             return
@@ -52,7 +88,7 @@ async def consume_game_chat(bot: "XCoreDiscordBot") -> None:
         if channel is None:
             return
 
-        safe_author = str(event.author_name).replace("`", "")
+        safe_author = str(event.authorName).replace("`", "")
         safe_message = str(event.message).replace("`", "")
         await channel.send(f"`{safe_author}: {safe_message}`")
 
@@ -62,7 +98,7 @@ async def consume_game_chat(bot: "XCoreDiscordBot") -> None:
 async def consume_global_chat(bot: "XCoreDiscordBot") -> None:
     from .bot import strip_mindustry_colors
 
-    async def dispatch(event: GlobalChatEvent) -> None:
+    async def dispatch(event: ChatGlobalV1) -> None:
         channel_id = bot._channel_id_for_server(event.server, context="global chat")
         if channel_id is None:
             return
@@ -73,7 +109,7 @@ async def consume_global_chat(bot: "XCoreDiscordBot") -> None:
         if channel is None:
             return
 
-        safe_author = strip_mindustry_colors(str(event.author_name).replace("`", ""))
+        safe_author = strip_mindustry_colors(str(event.authorName).replace("`", ""))
         safe_message = strip_mindustry_colors(str(event.message).replace("`", ""))
         safe_server = str(event.server).replace("`", "")
         await channel.send(f"`[GLOBAL:{safe_server}] {safe_author}: {safe_message}`")
@@ -85,17 +121,13 @@ async def consume_global_chat(bot: "XCoreDiscordBot") -> None:
 
 async def consume_raw_events(bot: "XCoreDiscordBot") -> None:
     async def dispatch(event: RawEvent) -> None:
-        if event.event_type in {
-            EventType.HEARTBEAT,
-            "org.xcore.plugin.event.SocketEvents$ServerHeartbeatEvent",
-            "event.serverheartbeatevent",
-        }:
-            heartbeat = ServerHeartbeatEvent.from_payload(event.payload)
+        if event.event_type in LEGACY_HEARTBEAT_EVENT_TYPES:
+            heartbeat = parse_server_heartbeat_payload(event.payload)
             server_registry.update_server(
-                heartbeat.server_name,
-                heartbeat.discord_channel_id,
+                heartbeat.serverName,
+                heartbeat.discordChannelId,
                 heartbeat.players,
-                heartbeat.max_players,
+                heartbeat.maxPlayers,
                 heartbeat.version,
                 heartbeat.host,
                 heartbeat.port,
@@ -113,7 +145,7 @@ async def consume_raw_events(bot: "XCoreDiscordBot") -> None:
 
 
 async def consume_server_heartbeats(bot: "XCoreDiscordBot") -> None:
-    async def dispatch(_event: ServerHeartbeatEvent) -> None:
+    async def dispatch(_event: ServerHeartbeatV1) -> None:
         return None
 
     await run_consumer_forever(
@@ -125,7 +157,7 @@ async def consume_server_heartbeats(bot: "XCoreDiscordBot") -> None:
 
 
 async def consume_join_leave(bot: "XCoreDiscordBot") -> None:
-    async def dispatch(event: PlayerJoinLeaveEvent) -> None:
+    async def dispatch(event: PlayerJoinLeaveV1) -> None:
         channel_id = bot._channel_id_for_server(event.server, context="join/leave")
         if channel_id is None:
             return
@@ -137,7 +169,7 @@ async def consume_join_leave(bot: "XCoreDiscordBot") -> None:
             return
 
         action = "joined" if event.joined else "left"
-        safe_player = str(event.player_name).replace("`", "")
+        safe_player = str(event.playerName).replace("`", "")
         await channel.send(f"`{safe_player}` {action}")
 
     await run_consumer_forever(
@@ -149,7 +181,7 @@ async def consume_join_leave(bot: "XCoreDiscordBot") -> None:
 
 
 async def consume_server_actions(bot: "XCoreDiscordBot") -> None:
-    async def dispatch(event: ServerActionEvent) -> None:
+    async def dispatch(event: ServerActionV1) -> None:
         channel_id = bot._channel_id_for_server(event.server, context="server action")
         if channel_id is None:
             return
@@ -172,19 +204,24 @@ async def consume_server_actions(bot: "XCoreDiscordBot") -> None:
 
 
 async def consume_bans(bot: "XCoreDiscordBot") -> None:
-    async def dispatch(event: BanEvent) -> None:
+    async def dispatch(event: ModerationBanCreatedV1) -> None:
         if not bot.bans_channel_id:
             return
 
-        player_id = await _player_pid_for_uuid(bot, event.uuid)
+        player_id = await _player_pid_for_uuid(bot, event.target.playerUuid)
 
-        expire_dt = bot._parse_iso_datetime(event.expire_date) or await bot.now_utc()
+        expire_dt = (
+            bot._parse_iso_datetime(_expiration_value(event.expiration))
+            or await bot.now_utc()
+        )
         await post_ban_log(
             bot,
-            pid=event.pid if event.pid is not None else player_id,
-            name=event.name,
-            admin_name=event.admin_name,
-            admin_discord_id=event.admin_discord_id,
+            pid=event.target.playerPid
+            if event.target.playerPid is not None
+            else player_id,
+            name=event.target.playerName,
+            admin_name=event.actor.actorName,
+            admin_discord_id=event.actor.actorDiscordId,
             reason=event.reason,
             expire=expire_dt,
         )
@@ -193,19 +230,24 @@ async def consume_bans(bot: "XCoreDiscordBot") -> None:
 
 
 async def consume_mutes(bot: "XCoreDiscordBot") -> None:
-    async def dispatch(event: MuteEvent) -> None:
+    async def dispatch(event: ModerationMuteCreatedV1) -> None:
         if not bot.mutes_channel_id:
             return
 
-        player_id = await _player_pid_for_uuid(bot, event.uuid)
+        player_id = await _player_pid_for_uuid(bot, event.target.playerUuid)
 
-        expire_dt = bot._parse_iso_datetime(event.expire_date) or await bot.now_utc()
+        expire_dt = (
+            bot._parse_iso_datetime(_expiration_value(event.expiration))
+            or await bot.now_utc()
+        )
         await post_mute_log(
             bot,
-            pid=event.pid if event.pid is not None else player_id,
-            name=event.name,
-            admin_name=event.admin_name,
-            admin_discord_id=event.admin_discord_id,
+            pid=event.target.playerPid
+            if event.target.playerPid is not None
+            else player_id,
+            name=event.target.playerName,
+            admin_name=event.actor.actorName,
+            admin_discord_id=event.actor.actorDiscordId,
             reason=event.reason,
             expire=expire_dt,
         )
@@ -214,20 +256,26 @@ async def consume_mutes(bot: "XCoreDiscordBot") -> None:
 
 
 async def consume_vote_kicks(bot: "XCoreDiscordBot") -> None:
-    async def dispatch(event: VoteKickEvent) -> None:
+    async def dispatch(event: ModerationVoteKickCreatedV1) -> None:
         if not bot.votekicks_channel_id:
             return
 
         await post_vote_kick_log(
             bot,
-            target_name=event.target_name,
-            target_pid=event.target_pid,
-            starter_name=event.starter_name,
-            starter_pid=event.starter_pid,
-            starter_discord_id=event.starter_discord_id,
+            target_name=event.target.playerName,
+            target_pid=event.target.playerPid,
+            starter_name=event.actor.actorName,
+            starter_pid=_resolve_vote_kick_starter_pid(event),
+            starter_discord_id=event.actor.actorDiscordId,
             reason=event.reason,
-            votes_for=event.votes_for,
-            votes_against=event.votes_against,
+            votes_for=[
+                _to_legacy_vote_kick_participant(item)
+                for item in (event.votesFor or ())
+            ],
+            votes_against=[
+                _to_legacy_vote_kick_participant(item)
+                for item in (event.votesAgainst or ())
+            ],
         )
 
     await run_consumer_forever(

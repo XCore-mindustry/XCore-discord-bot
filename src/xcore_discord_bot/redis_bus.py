@@ -12,17 +12,26 @@ from redis.asyncio import Redis
 from redis.exceptions import ResponseError
 
 from .contracts import (
-    BanEvent,
-    DiscordLinkStatusChangedEvent,
-    EventType,
-    GameChatMessage,
-    GlobalChatEvent,
-    MuteEvent,
-    PlayerJoinLeaveEvent,
+    ChatGlobalV1,
+    ChatMessageV1,
+    DiscordLinkStatusChangedV1,
+    LEGACY_HEARTBEAT_EVENT_TYPES,
+    ModerationBanCreatedV1,
+    ModerationMuteCreatedV1,
+    ModerationVoteKickCreatedV1,
+    parse_ban_payload,
+    parse_chat_message_payload,
+    parse_discord_link_status_payload,
+    parse_global_chat_payload,
+    parse_mute_payload,
+    parse_player_join_leave_payload,
+    parse_server_action_payload,
+    parse_vote_kick_payload,
+    PlayerJoinLeaveV1,
     RawEvent,
-    ServerHeartbeatEvent,
-    ServerActionEvent,
-    VoteKickEvent,
+    ServerActionV1,
+    ServerHeartbeatV1,
+    parse_server_heartbeat_payload,
 )
 from .registry import server_registry
 from .settings import Settings
@@ -143,23 +152,23 @@ class RedisBus:
         return cast(dict[str, object], payload)
 
     async def consume_game_chat(
-        self, callback: Callable[[GameChatMessage], Awaitable[None]]
+        self, callback: Callable[[ChatMessageV1], Awaitable[None]]
     ) -> None:
         await self._consume_events(
             stream="xcore:evt:chat:message",
             group_suffix="discord-chat",
-            parse_payload=GameChatMessage.from_payload,
+            parse_payload=parse_chat_message_payload,
             callback=callback,
             skip_discord_producer=True,
         )
 
     async def consume_global_chat(
-        self, callback: Callable[[GlobalChatEvent], Awaitable[None]]
+        self, callback: Callable[[ChatGlobalV1], Awaitable[None]]
     ) -> None:
         await self._consume_events(
             stream="xcore:evt:chat:global",
             group_suffix="discord-global-chat",
-            parse_payload=GlobalChatEvent.from_payload,
+            parse_payload=parse_global_chat_payload,
             callback=callback,
         )
 
@@ -167,11 +176,8 @@ class RedisBus:
         self, callback: Callable[[RawEvent], Awaitable[None]]
     ) -> None:
         async def wrapped(event: RawEvent) -> None:
-            if event.event_type in {
-                EventType.HEARTBEAT,
-                "org.xcore.plugin.event.SocketEvents$ServerHeartbeatEvent",
-            }:
-                heartbeat = ServerHeartbeatEvent.from_payload(event.payload)
+            if event.event_type in LEGACY_HEARTBEAT_EVENT_TYPES:
+                heartbeat = parse_server_heartbeat_payload(event.payload)
                 self._update_registry_from_heartbeat(heartbeat)
             await callback(event)
 
@@ -183,76 +189,76 @@ class RedisBus:
         )
 
     async def consume_server_heartbeats(
-        self, callback: Callable[[ServerHeartbeatEvent], Awaitable[None]]
+        self, callback: Callable[[ServerHeartbeatV1], Awaitable[None]]
     ) -> None:
-        async def wrapped(event: ServerHeartbeatEvent) -> None:
+        async def wrapped(event: ServerHeartbeatV1) -> None:
             self._update_registry_from_heartbeat(event)
             await callback(event)
 
         await self._consume_events(
             stream="xcore:evt:server:heartbeat",
             group_suffix="discord-server-heartbeat",
-            parse_payload=ServerHeartbeatEvent.from_payload,
+            parse_payload=parse_server_heartbeat_payload,
             callback=wrapped,
         )
 
     async def consume_player_join_leave(
-        self, callback: Callable[[PlayerJoinLeaveEvent], Awaitable[None]]
+        self, callback: Callable[[PlayerJoinLeaveV1], Awaitable[None]]
     ) -> None:
         await self._consume_events(
             stream="xcore:evt:player:joinleave",
             group_suffix="discord-join-leave",
-            parse_payload=PlayerJoinLeaveEvent.from_payload,
+            parse_payload=parse_player_join_leave_payload,
             callback=callback,
         )
 
     async def consume_server_actions(
-        self, callback: Callable[[ServerActionEvent], Awaitable[None]]
+        self, callback: Callable[[ServerActionV1], Awaitable[None]]
     ) -> None:
         await self._consume_events(
             stream="xcore:evt:server:action",
             group_suffix="discord-server-action",
-            parse_payload=ServerActionEvent.from_payload,
+            parse_payload=parse_server_action_payload,
             callback=callback,
         )
 
     async def consume_bans(
-        self, callback: Callable[[BanEvent], Awaitable[None]]
+        self, callback: Callable[[ModerationBanCreatedV1], Awaitable[None]]
     ) -> None:
         await self._consume_events(
             stream="xcore:evt:moderation:ban",
             group_suffix="discord-ban",
-            parse_payload=BanEvent.from_payload,
+            parse_payload=parse_ban_payload,
             callback=callback,
         )
 
     async def consume_mutes(
-        self, callback: Callable[[MuteEvent], Awaitable[None]]
+        self, callback: Callable[[ModerationMuteCreatedV1], Awaitable[None]]
     ) -> None:
         await self._consume_events(
             stream="xcore:evt:moderation:mute",
             group_suffix="discord-mute",
-            parse_payload=MuteEvent.from_payload,
+            parse_payload=parse_mute_payload,
             callback=callback,
         )
 
     async def consume_vote_kicks(
-        self, callback: Callable[[VoteKickEvent], Awaitable[None]]
+        self, callback: Callable[[ModerationVoteKickCreatedV1], Awaitable[None]]
     ) -> None:
         await self._consume_events(
             stream="xcore:evt:moderation:votekick",
             group_suffix="discord-votekick",
-            parse_payload=VoteKickEvent.from_payload,
+            parse_payload=parse_vote_kick_payload,
             callback=callback,
         )
 
     async def consume_discord_link_status_changed(
-        self, callback: Callable[[DiscordLinkStatusChangedEvent], Awaitable[None]]
+        self, callback: Callable[[DiscordLinkStatusChangedV1], Awaitable[None]]
     ) -> None:
         await self._consume_events(
             stream="xcore:evt:discord:link-status",
             group_suffix="discord-link-status",
-            parse_payload=DiscordLinkStatusChangedEvent.from_payload,
+            parse_payload=parse_discord_link_status_payload,
             callback=callback,
         )
 
@@ -453,12 +459,12 @@ class RedisBus:
         )
 
     @staticmethod
-    def _update_registry_from_heartbeat(event: ServerHeartbeatEvent) -> None:
+    def _update_registry_from_heartbeat(event: ServerHeartbeatV1) -> None:
         server_registry.update_server(
-            event.server_name,
-            event.discord_channel_id,
+            event.serverName,
+            event.discordChannelId,
             event.players,
-            event.max_players,
+            event.maxPlayers,
             event.version,
             event.host,
             event.port,
