@@ -13,7 +13,11 @@ from xcore_protocol.generated.discord import (
     DiscordLinkConfirmCommandV1,
     DiscordUnlinkCommandV1,
 )
-from xcore_protocol.generated.maps import MapsLoadCommandV1
+from xcore_protocol.generated.maps import (
+    MapsListRequestV1,
+    MapsLoadCommandV1,
+    MapsRemoveRequestV1,
+)
 from xcore_protocol.generated.moderation import (
     ModerationKickBannedCommandV1,
     ModerationPardonCommandV1,
@@ -25,7 +29,9 @@ from xcore_discord_bot.protocol_outbound import (
     build_discord_admin_access_changed_command,
     build_discord_link_confirm_command,
     build_discord_unlink_command,
+    build_maps_list_request,
     build_maps_load_command,
+    build_maps_remove_request,
     build_moderation_kick_banned_command,
     build_moderation_pardon_command,
     build_player_active_badge_changed_command,
@@ -245,3 +251,24 @@ def test_maps_load_round_trip() -> None:
     assert parsed.files[1] == MapFileSourceV1(
         url="https://example/two.msav", fileName="two.msav"
     )
+
+
+def test_maps_list_request_round_trip() -> None:
+    request = build_maps_list_request(server="mini-pvp")
+    wire = request.to_payload()
+    parsed = MapsListRequestV1.from_payload(wire)
+    assert parsed == request
+    assert parsed.server == "mini-pvp"
+    assert wire["messageType"] == "maps.list.request"
+    assert wire["messageVersion"] == 1
+
+
+def test_maps_remove_request_round_trip() -> None:
+    request = build_maps_remove_request(server="mini-pvp", file_name="map-a.msav")
+    wire = request.to_payload()
+    parsed = MapsRemoveRequestV1.from_payload(wire)
+    assert parsed == request
+    assert parsed.server == "mini-pvp"
+    assert parsed.fileName == "map-a.msav"
+    assert wire["messageType"] == "maps.remove.request"
+    assert wire["messageVersion"] == 1

@@ -11,14 +11,22 @@ from typing import Any, Awaitable, Callable, Mapping, cast
 from redis.asyncio import Redis
 from redis.exceptions import ResponseError
 
-from xcore_protocol.generated.shared import ActorRefV1ActorType
+from xcore_protocol.generated.maps import (
+    MapsListRequestV1,
+    MapsListResponseV1,
+    MapsRemoveRequestV1,
+    MapsRemoveResponseV1,
+)
+from xcore_protocol.generated.shared import ActorRefV1ActorType, MapEntryV1
 
 from .protocol_outbound import (
     build_chat_discord_ingress_command,
     build_discord_admin_access_changed_command,
     build_discord_link_confirm_command,
     build_discord_unlink_command,
+    build_maps_list_request,
     build_maps_load_command,
+    build_maps_remove_request,
     build_moderation_kick_banned_command,
     build_moderation_pardon_command,
     build_player_active_badge_changed_command,
@@ -792,17 +800,15 @@ class RedisBus:
     async def rpc_maps_list(self, server: str, timeout_ms: int) -> list[dict[str, str]]:
         body = await self._rpc_request(
             server=server,
-            rpc_type="maps.list",
-            payload={"server": server},
+            rpc_type=MapsListRequestV1.MESSAGE_TYPE,
+            payload=build_maps_list_request(server=server).to_payload(),
             timeout_ms=timeout_ms,
         )
 
         payload_json = body.get("payload_json", "{}")
         payload = json.loads(payload_json)
-        maps = payload.get("maps")
-        if isinstance(maps, list):
-            return [self._normalize_map_entry(value) for value in maps]
-        return []
+        response = MapsListResponseV1.from_payload(payload)
+        return [self._normalize_map_entry_v1(entry) for entry in response.maps]
 
     async def _publish_for_all_servers(
         self,
@@ -828,52 +834,38 @@ class RedisBus:
         return [srv.name for srv in server_registry.get_all_servers()]
 
     @staticmethod
-    def _normalize_map_entry(value: Any) -> dict[str, str]:
-        if isinstance(value, dict):
-            return {
-                "name": str(value.get("name", "Unknown")),
-                "file_name": str(value.get("fileName", value.get("file_name", ""))),
-                "author": str(value.get("author", "Unknown")),
-                "width": str(value.get("width", "")),
-                "height": str(value.get("height", "")),
-                "file_size_bytes": str(
-                    value.get("fileSizeBytes", value.get("file_size_bytes", ""))
-                ),
-                "like": str(value.get("like", "")),
-                "dislike": str(value.get("dislike", "")),
-                "reputation": str(value.get("reputation", "")),
-                "popularity": str(value.get("popularity", "")),
-                "interest": str(value.get("interest", "")),
-                "game_mode": str(value.get("gameMode", value.get("game_mode", ""))),
-            }
-
+    def _normalize_map_entry_v1(entry: MapEntryV1) -> dict[str, str]:
         return {
-            "name": str(value),
-            "file_name": "",
-            "author": "Unknown",
-            "width": "",
-            "height": "",
-            "file_size_bytes": "",
-            "like": "",
-            "dislike": "",
-            "reputation": "",
-            "popularity": "",
-            "interest": "",
-            "game_mode": "",
+            "name": entry.name,
+            "file_name": entry.fileName,
+            "author": entry.author,
+            "width": str(entry.width) if entry.width is not None else "",
+            "height": str(entry.height) if entry.height is not None else "",
+            "file_size_bytes": str(entry.fileSizeBytes)
+            if entry.fileSizeBytes is not None
+            else "",
+            "like": str(entry.like) if entry.like is not None else "",
+            "dislike": str(entry.dislike) if entry.dislike is not None else "",
+            "reputation": str(entry.reputation) if entry.reputation is not None else "",
+            "popularity": str(entry.popularity) if entry.popularity is not None else "",
+            "interest": str(entry.interest) if entry.interest is not None else "",
+            "game_mode": entry.gameMode if entry.gameMode is not None else "",
         }
 
     async def rpc_remove_map(self, server: str, file_name: str, timeout_ms: int) -> str:
         body = await self._rpc_request(
             server=server,
-            rpc_type="maps.remove",
-            payload={"server": server, "fileName": file_name, "file_name": file_name},
+            rpc_type=MapsRemoveRequestV1.MESSAGE_TYPE,
+            payload=build_maps_remove_request(
+                server=server, file_name=file_name
+            ).to_payload(),
             timeout_ms=timeout_ms,
         )
 
         payload_json = body.get("payload_json", "{}")
         payload = json.loads(payload_json)
-        result = payload.get("result")
-        return str(result) if result is not None else "No result"
+        response = MapsRemoveResponseV1.from_payload(payload)
+        return response.result
 
     async def _rpc_request(
         self, server: str, rpc_type: str, payload: dict[str, Any], timeout_ms: int

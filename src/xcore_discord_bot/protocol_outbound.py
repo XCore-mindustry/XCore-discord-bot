@@ -13,7 +13,11 @@ from xcore_protocol.generated.discord import (
     DiscordLinkConfirmCommandV1,
     DiscordUnlinkCommandV1,
 )
-from xcore_protocol.generated.maps import MapsLoadCommandV1
+from xcore_protocol.generated.maps import (
+    MapsListRequestV1,
+    MapsLoadCommandV1,
+    MapsRemoveRequestV1,
+)
 from xcore_protocol.generated.moderation import (
     ModerationKickBannedCommandV1,
     ModerationPardonCommandV1,
@@ -217,4 +221,22 @@ def build_maps_load_command(
             )
             for item in files
         ),
+    )
+
+
+def build_maps_list_request(
+    server: str,
+) -> MapsListRequestV1:
+    return MapsListRequestV1(
+        server=server,
+    )
+
+
+def build_maps_remove_request(
+    server: str,
+    file_name: str,
+) -> MapsRemoveRequestV1:
+    return MapsRemoveRequestV1(
+        server=server,
+        fileName=file_name,
     )
