@@ -514,11 +514,15 @@ async def cmd_remove_admin(
         await bot.publish_discord_admin_access_changed(
             player_uuid=target_uuid,
             player_pid=target_player.pid,
+            player_name=target_player.nickname,
             discord_id=target_player.discord_id or "",
             discord_username=target_player.discord_username,
             admin=False,
-            admin_source="NONE",
-            requested_by=interaction.user.display_name,
+            source_name="NONE",
+            source_type="discord",
+            actor_name=interaction.user.display_name,
+            actor_discord_id=str(interaction.user.id),
+            actor_type="discord",
             reason="/admin remove",
         )
         any_changed = any_changed or changed
@@ -586,11 +590,15 @@ async def cmd_add_admin(
         await bot.publish_discord_admin_access_changed(
             player_uuid=target_uuid,
             player_pid=target_player.pid,
+            player_name=target_player.nickname,
             discord_id=target_player.discord_id or "",
             discord_username=target_player.discord_username,
             admin=True,
-            admin_source="DISCORD_ROLE",
-            requested_by=interaction.user.display_name,
+            source_name="DISCORD_ROLE",
+            source_type="discord",
+            actor_name=interaction.user.display_name,
+            actor_discord_id=str(interaction.user.id),
+            actor_type="discord",
             reason="/admin add",
         )
         any_changed = any_changed or changed

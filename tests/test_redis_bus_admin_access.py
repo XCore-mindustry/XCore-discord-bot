@@ -40,13 +40,17 @@ async def test_publish_discord_admin_access_changed_publishes_for_all_servers(
     await bus.publish_discord_admin_access_changed(
         player_uuid="uuid-7",
         player_pid=7,
+        player_name="Target",
         discord_id="123",
         discord_username="discord-user",
         admin=True,
-        admin_source="DISCORD_ROLE",
-        requested_by="boss",
+        source_name="DISCORD_ROLE",
+        source_type="discord",
+        actor_name="boss",
+        actor_discord_id=None,
+        actor_type="discord",
         reason="/admin add",
     )
 
     assert captured["stream_prefix"] == "xcore:cmd:discord-admin-access"
-    assert captured["event_type"] == "discord.admin_access_changed"
+    assert captured["event_type"] == "discord.admin-access.changed.command"

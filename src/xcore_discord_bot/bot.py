@@ -409,21 +409,29 @@ class XCoreDiscordBot(commands.Bot):
         *,
         player_uuid: str,
         player_pid: int,
+        player_name: str,
         discord_id: str,
         discord_username: str | None,
         admin: bool,
-        admin_source: str,
-        requested_by: str,
+        source_name: str,
+        source_type: str,
+        actor_name: str,
+        actor_discord_id: str | None,
+        actor_type: str,
         reason: str,
     ) -> None:
         await self._bus.publish_discord_admin_access_changed(
             player_uuid=player_uuid,
             player_pid=player_pid,
+            player_name=player_name,
             discord_id=discord_id,
             discord_username=discord_username,
             admin=admin,
-            admin_source=admin_source,
-            requested_by=requested_by,
+            source_name=source_name,
+            source_type=source_type,
+            actor_name=actor_name,
+            actor_discord_id=actor_discord_id,
+            actor_type=actor_type,
             reason=reason,
         )
 
@@ -672,11 +680,15 @@ class XCoreDiscordBot(commands.Bot):
             await self.publish_discord_admin_access_changed(
                 player_uuid=uuid_value,
                 player_pid=player.pid,
+                player_name=player.nickname,
                 discord_id=discord_id,
                 discord_username=player.discord_username,
                 admin=False,
-                admin_source="NONE",
-                requested_by="system/reconcile",
+                source_name="NONE",
+                source_type="system",
+                actor_name="system/reconcile",
+                actor_discord_id=None,
+                actor_type="system",
                 reason="discord role missing during reconcile",
             )
             if changed:
@@ -730,11 +742,15 @@ class XCoreDiscordBot(commands.Bot):
                 await self.publish_discord_admin_access_changed(
                     player_uuid=uuid_value,
                     player_pid=player.pid,
+                    player_name=player.nickname,
                     discord_id=discord_id,
                     discord_username=player.discord_username,
                     admin=True,
-                    admin_source="DISCORD_ROLE",
-                    requested_by="system/reconcile",
+                    source_name="DISCORD_ROLE",
+                    source_type="discord",
+                    actor_name="system/reconcile",
+                    actor_discord_id=None,
+                    actor_type="system",
                     reason="discord role present during reconcile",
                 )
                 if changed:
@@ -796,6 +812,7 @@ class XCoreDiscordBot(commands.Bot):
         code: str,
         player_uuid: str,
         player_pid: int,
+        player_name: str,
         discord_id: str,
         discord_username: str,
     ) -> None:
@@ -803,6 +820,7 @@ class XCoreDiscordBot(commands.Bot):
             code=code,
             player_uuid=player_uuid,
             player_pid=player_pid,
+            player_name=player_name,
             discord_id=discord_id,
             discord_username=discord_username,
         )
@@ -812,14 +830,20 @@ class XCoreDiscordBot(commands.Bot):
         *,
         player_uuid: str,
         player_pid: int,
+        player_name: str,
         discord_id: str,
-        requested_by: str,
+        discord_username: str,
+        actor_name: str,
+        actor_discord_id: str,
     ) -> None:
         await self._bus.publish_discord_unlink(
             player_uuid=player_uuid,
             player_pid=player_pid,
+            player_name=player_name,
             discord_id=discord_id,
-            requested_by=requested_by,
+            discord_username=discord_username,
+            actor_name=actor_name,
+            actor_discord_id=actor_discord_id,
         )
 
     async def reconnect_bus(self) -> None:
@@ -1001,6 +1025,7 @@ class XCoreDiscordBot(commands.Bot):
                         code=code,
                         player_uuid=player.uuid,
                         player_pid=player.pid,
+                        player_name=player.nickname,
                         discord_id=str(message.author.id),
                         discord_username=message.author.display_name,
                     )

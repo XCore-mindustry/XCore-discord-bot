@@ -59,6 +59,7 @@ async def cmd_link(bot: "XCoreDiscordBot", interaction: Interaction, code: str) 
         code=normalized_code,
         player_uuid=player.uuid,
         player_pid=player.pid,
+        player_name=player.nickname,
         discord_id=discord_id,
         discord_username=discord_username,
     )
@@ -119,8 +120,11 @@ async def cmd_unlink(
     await bot.publish_discord_unlink(
         player_uuid=player.uuid,
         player_pid=player.pid,
+        player_name=player.nickname,
         discord_id=discord_id,
-        requested_by="discord",
+        discord_username=interaction.user.display_name,
+        actor_name="discord",
+        actor_discord_id=str(interaction.user.id),
     )
     await interaction.response.send_message(
         f"Unlink request sent for `{player.nickname}`.",

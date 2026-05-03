@@ -11,6 +11,14 @@ from typing import Any, Awaitable, Callable, Mapping, cast
 from redis.asyncio import Redis
 from redis.exceptions import ResponseError
 
+from .protocol_outbound import (
+    build_discord_admin_access_changed_command,
+    build_discord_link_confirm_command,
+    build_discord_unlink_command,
+    build_moderation_kick_banned_command,
+    build_moderation_pardon_command,
+)
+
 from .contracts import (
     ChatGlobalV1,
     ChatMessageV1,
@@ -590,52 +598,62 @@ class RedisBus:
         *,
         player_uuid: str,
         player_pid: int,
+        player_name: str,
         discord_id: str,
         discord_username: str | None,
         admin: bool,
-        admin_source: str,
-        requested_by: str,
+        source_name: str,
+        source_type: str,
+        actor_name: str,
+        actor_discord_id: str | None,
+        actor_type: str,
         reason: str,
     ) -> None:
         await self._publish_for_all_servers(
             stream_prefix="xcore:cmd:discord-admin-access",
-            event_type="discord.admin_access_changed",
+            event_type="discord.admin-access.changed.command",
             ttl_ms=120_000,
             idempotency_prefix="discord.admin_access_changed",
-            payload_builder=lambda server: {
-                "playerUuid": player_uuid,
-                "playerPid": player_pid,
-                "discordId": discord_id,
-                "discordUsername": discord_username or "",
-                "admin": admin,
-                "adminSource": admin_source,
-                "requestedBy": requested_by,
-                "reason": reason,
-                "server": server,
-                "occurredAt": int(time.time() * 1000),
-            },
+            payload_builder=lambda server: build_discord_admin_access_changed_command(
+                player_uuid=player_uuid,
+                player_pid=player_pid,
+                player_name=player_name,
+                discord_id=discord_id,
+                discord_username=discord_username,
+                admin=admin,
+                source_name=source_name,
+                source_type=source_type,
+                actor_name=actor_name,
+                actor_discord_id=actor_discord_id,
+                actor_type=actor_type,
+                reason=reason,
+                server=server,
+            ).to_payload(),
         )
 
     async def publish_kick_banned(self, uuid_value: str, ip: str | None) -> None:
         await self._publish_for_all_servers(
             stream_prefix="xcore:cmd:kick-banned",
-            event_type="moderation.kick_banned",
+            event_type="moderation.kick-banned.command",
             ttl_ms=120_000,
             idempotency_prefix="moderation.kick_banned",
-            payload_builder=lambda server: {
-                "uuid": uuid_value,
-                "ip": ip,
-                "server": server,
-            },
+            payload_builder=lambda server: build_moderation_kick_banned_command(
+                uuid_value=uuid_value,
+                ip=ip,
+                server=server,
+            ).to_payload(),
         )
 
     async def publish_pardon_player(self, uuid_value: str) -> None:
         await self._publish_for_all_servers(
             stream_prefix="xcore:cmd:pardon-player",
-            event_type="moderation.pardon",
+            event_type="moderation.pardon.command",
             ttl_ms=120_000,
             idempotency_prefix="moderation.pardon",
-            payload_builder=lambda server: {"uuid": uuid_value, "server": server},
+            payload_builder=lambda server: build_moderation_pardon_command(
+                uuid_value=uuid_value,
+                server=server,
+            ).to_payload(),
         )
 
     async def publish_maps_load(self, server: str, files: list[dict[str, str]]) -> None:
@@ -704,23 +722,24 @@ class RedisBus:
         code: str,
         player_uuid: str,
         player_pid: int,
+        player_name: str,
         discord_id: str,
         discord_username: str,
     ) -> None:
         await self._publish_for_all_servers(
             stream_prefix="xcore:cmd:discord-link-confirm",
-            event_type="discord.link_confirm",
+            event_type="discord.link.confirm.command",
             ttl_ms=120_000,
             idempotency_prefix="discord.link_confirm",
-            payload_builder=lambda server: {
-                "code": code,
-                "playerUuid": player_uuid,
-                "playerPid": player_pid,
-                "discordId": discord_id,
-                "discordUsername": discord_username,
-                "server": server,
-                "confirmedAt": int(time.time() * 1000),
-            },
+            payload_builder=lambda server: build_discord_link_confirm_command(
+                code=code,
+                player_uuid=player_uuid,
+                player_pid=player_pid,
+                player_name=player_name,
+                discord_id=discord_id,
+                discord_username=discord_username,
+                server=server,
+            ).to_payload(),
         )
 
     async def publish_discord_unlink(
@@ -728,22 +747,27 @@ class RedisBus:
         *,
         player_uuid: str,
         player_pid: int,
+        player_name: str,
         discord_id: str,
-        requested_by: str,
+        discord_username: str,
+        actor_name: str,
+        actor_discord_id: str,
     ) -> None:
         await self._publish_for_all_servers(
             stream_prefix="xcore:cmd:discord-unlink",
-            event_type="discord.unlink",
+            event_type="discord.unlink.command",
             ttl_ms=120_000,
             idempotency_prefix="discord.unlink",
-            payload_builder=lambda server: {
-                "playerUuid": player_uuid,
-                "playerPid": player_pid,
-                "discordId": discord_id,
-                "requestedBy": requested_by,
-                "server": server,
-                "requestedAt": int(time.time() * 1000),
-            },
+            payload_builder=lambda server: build_discord_unlink_command(
+                player_uuid=player_uuid,
+                player_pid=player_pid,
+                player_name=player_name,
+                discord_id=discord_id,
+                discord_username=discord_username,
+                actor_name=actor_name,
+                actor_discord_id=actor_discord_id,
+                server=server,
+            ).to_payload(),
         )
 
     async def claim_idempotency(self, key: str, ttl_seconds: int = 600) -> bool:

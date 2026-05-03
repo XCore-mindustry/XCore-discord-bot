@@ -93,6 +93,7 @@ async def test_cmd_link_publishes_confirm_event() -> None:
             "code": "ABC123",
             "player_uuid": "uuid-7",
             "player_pid": 7,
+            "player_name": "Target",
             "discord_id": "555",
             "discord_username": "discord-user",
         }

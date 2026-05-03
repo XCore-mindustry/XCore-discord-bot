@@ -17,6 +17,7 @@ from xcore_discord_bot.handlers_moderation import (
 
 @dataclass
 class _User:
+    id: int = 1
     display_name: str = "boss"
 
 
