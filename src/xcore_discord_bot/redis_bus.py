@@ -14,9 +14,11 @@ from redis.exceptions import ResponseError
 from xcore_protocol.generated.shared import ActorRefV1ActorType
 
 from .protocol_outbound import (
+    build_chat_discord_ingress_command,
     build_discord_admin_access_changed_command,
     build_discord_link_confirm_command,
     build_discord_unlink_command,
+    build_maps_load_command,
     build_moderation_kick_banned_command,
     build_moderation_pardon_command,
     build_player_active_badge_changed_command,
@@ -118,15 +120,15 @@ class RedisBus:
         for target_server in target_servers:
             event_id = str(uuid.uuid4())
             stream = f"xcore:cmd:discord-message:{target_server}"
-            payload = {
-                "authorName": author_name,
-                "message": message,
-                "server": target_server,
-            }
+            payload = build_chat_discord_ingress_command(
+                author_name=author_name,
+                message=message,
+                server=target_server,
+            ).to_payload()
 
             fields = {
                 "schema_version": "1",
-                "event_type": "chat.discord_ingress",
+                "event_type": "chat.discord-ingress.command",
                 "event_id": event_id,
                 "idempotency_key": self._build_idempotency_key(
                     prefix="discord.message",
@@ -664,11 +666,13 @@ class RedisBus:
     async def publish_maps_load(self, server: str, files: list[dict[str, str]]) -> None:
         await self._publish_event(
             stream=f"xcore:cmd:maps-load:{server}",
-            event_type="maps.load",
+            event_type="maps.load.command",
             ttl_ms=300_000,
             server=server,
-            payload={"urls": files, "server": server},
-            idempotency_prefix="maps.load",
+            payload=build_maps_load_command(
+                server=server,
+                files=files,
+            ).to_payload(),
         )
 
     async def publish_player_active_badge_changed(

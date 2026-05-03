@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from xcore_protocol.generated.chat import (
+    ChatDiscordIngressCommandV1,
     PlayerActiveBadgeChangedCommandV1,
     PlayerBadgeInventoryChangedCommandV1,
     PlayerPasswordResetCommandV1,
@@ -12,6 +13,7 @@ from xcore_protocol.generated.discord import (
     DiscordLinkConfirmCommandV1,
     DiscordUnlinkCommandV1,
 )
+from xcore_protocol.generated.maps import MapsLoadCommandV1
 from xcore_protocol.generated.moderation import (
     ModerationKickBannedCommandV1,
     ModerationPardonCommandV1,
@@ -20,6 +22,7 @@ from xcore_protocol.generated.shared import (
     ActorRefV1,
     ActorRefV1ActorType,
     DiscordIdentityRefV1,
+    MapFileSourceV1,
     PlayerCommandTargetV1,
     PlayerRefV1,
 )
@@ -186,4 +189,32 @@ def build_player_password_reset_command(
     return PlayerPasswordResetCommandV1(
         playerUuid=uuid_value,
         server=server,
+    )
+
+
+def build_chat_discord_ingress_command(
+    author_name: str,
+    message: str,
+    server: str,
+) -> ChatDiscordIngressCommandV1:
+    return ChatDiscordIngressCommandV1(
+        authorName=author_name,
+        message=message,
+        server=server,
+    )
+
+
+def build_maps_load_command(
+    server: str,
+    files: list[dict[str, str]],
+) -> MapsLoadCommandV1:
+    return MapsLoadCommandV1(
+        server=server,
+        files=tuple(
+            MapFileSourceV1(
+                url=item["url"],
+                fileName=item.get("fileName", item.get("filename", "")),
+            )
+            for item in files
+        ),
     )

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from xcore_protocol.generated.chat import (
+    ChatDiscordIngressCommandV1,
     PlayerActiveBadgeChangedCommandV1,
     PlayerBadgeInventoryChangedCommandV1,
     PlayerPasswordResetCommandV1,
@@ -12,15 +13,19 @@ from xcore_protocol.generated.discord import (
     DiscordLinkConfirmCommandV1,
     DiscordUnlinkCommandV1,
 )
+from xcore_protocol.generated.maps import MapsLoadCommandV1
 from xcore_protocol.generated.moderation import (
     ModerationKickBannedCommandV1,
     ModerationPardonCommandV1,
 )
+from xcore_protocol.generated.shared import MapFileSourceV1
 
 from xcore_discord_bot.protocol_outbound import (
+    build_chat_discord_ingress_command,
     build_discord_admin_access_changed_command,
     build_discord_link_confirm_command,
     build_discord_unlink_command,
+    build_maps_load_command,
     build_moderation_kick_banned_command,
     build_moderation_pardon_command,
     build_player_active_badge_changed_command,
@@ -205,3 +210,38 @@ def test_player_password_reset_round_trip() -> None:
     assert parsed == command
     assert parsed.playerUuid == "uuid-7"
     assert parsed.server == "mini-pvp"
+
+
+def test_chat_discord_ingress_round_trip() -> None:
+    command = build_chat_discord_ingress_command(
+        author_name="mod",
+        message="hello world",
+        server="mini-pvp",
+    )
+    wire = command.to_payload()
+    parsed = ChatDiscordIngressCommandV1.from_payload(wire)
+    assert parsed == command
+    assert parsed.authorName == "mod"
+    assert parsed.message == "hello world"
+    assert parsed.server == "mini-pvp"
+
+
+def test_maps_load_round_trip() -> None:
+    command = build_maps_load_command(
+        server="mini-pvp",
+        files=[
+            {"url": "https://example/one.msav", "filename": "one.msav"},
+            {"url": "https://example/two.msav", "fileName": "two.msav"},
+        ],
+    )
+    wire = command.to_payload()
+    parsed = MapsLoadCommandV1.from_payload(wire)
+    assert parsed == command
+    assert parsed.server == "mini-pvp"
+    assert len(parsed.files) == 2
+    assert parsed.files[0] == MapFileSourceV1(
+        url="https://example/one.msav", fileName="one.msav"
+    )
+    assert parsed.files[1] == MapFileSourceV1(
+        url="https://example/two.msav", fileName="two.msav"
+    )
