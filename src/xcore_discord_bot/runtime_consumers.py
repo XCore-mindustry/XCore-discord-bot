@@ -8,13 +8,9 @@ from typing import TYPE_CHECKING
 from .contracts import (
     ChatGlobalV1,
     ChatMessageV1,
-    LEGACY_HEARTBEAT_EVENT_TYPES,
     ServerHeartbeatV1,
-    VoteKickParticipant,
-    parse_server_heartbeat_payload,
 )
 from .handlers_moderation import post_ban_log, post_mute_log, post_vote_kick_log
-from .registry import server_registry
 from .retry import retry_reconnect_bus
 from .service_protocols import ConsumerRecoveryService, PlayerLookupService
 
@@ -25,7 +21,6 @@ if TYPE_CHECKING:
         ModerationMuteCreatedV1,
         ModerationVoteKickCreatedV1,
         PlayerJoinLeaveV1,
-        RawEvent,
         ServerActionV1,
     )
 
@@ -38,14 +33,6 @@ def _expiration_value(expiration) -> str | None:
         return None
     expires_at = str(expiration.expiresAt or "").strip()
     return expires_at or None
-
-
-def _to_legacy_vote_kick_participant(participant) -> VoteKickParticipant:
-    return VoteKickParticipant(
-        name=participant.playerName,
-        pid=participant.playerPid,
-        discord_id=participant.discordId,
-    )
 
 
 def _resolve_vote_kick_starter_pid(event: "ModerationVoteKickCreatedV1") -> int | None:
@@ -116,31 +103,6 @@ async def consume_global_chat(bot: "XCoreDiscordBot") -> None:
 
     await run_consumer_forever(
         bot, "Global chat", bot.consume_global_chat_events, dispatch
-    )
-
-
-async def consume_raw_events(bot: "XCoreDiscordBot") -> None:
-    async def dispatch(event: RawEvent) -> None:
-        if event.event_type in LEGACY_HEARTBEAT_EVENT_TYPES:
-            heartbeat = parse_server_heartbeat_payload(event.payload)
-            server_registry.update_server(
-                heartbeat.serverName,
-                heartbeat.discordChannelId,
-                heartbeat.players,
-                heartbeat.maxPlayers,
-                heartbeat.version,
-                heartbeat.host,
-                heartbeat.port,
-            )
-            return
-        logger.warning(
-            "Unhandled raw event received: type=%s payload=%s",
-            event.event_type,
-            event.payload,
-        )
-
-    await run_consumer_forever(
-        bot, "Raw event", bot.consume_raw_events_stream, dispatch
     )
 
 
@@ -268,14 +230,8 @@ async def consume_vote_kicks(bot: "XCoreDiscordBot") -> None:
             starter_pid=_resolve_vote_kick_starter_pid(event),
             starter_discord_id=event.actor.actorDiscordId,
             reason=event.reason,
-            votes_for=[
-                _to_legacy_vote_kick_participant(item)
-                for item in (event.votesFor or ())
-            ],
-            votes_against=[
-                _to_legacy_vote_kick_participant(item)
-                for item in (event.votesAgainst or ())
-            ],
+            votes_for=list(event.votesFor or ()),
+            votes_against=list(event.votesAgainst or ()),
         )
 
     await run_consumer_forever(

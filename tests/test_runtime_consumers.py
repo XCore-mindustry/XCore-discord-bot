@@ -494,8 +494,8 @@ async def test_consume_vote_kicks_dispatches_vote_payload_to_log_handler(
     assert captured["starter_pid"] == 7
     assert captured["starter_discord_id"] == "123456"
     assert captured["reason"] == "griefing"
-    assert [item.name for item in captured["votes_for"]] == ["Starter"]
-    assert [item.name for item in captured["votes_against"]] == ["Voter2"]
+    assert [item.playerName for item in captured["votes_for"]] == ["Starter"]
+    assert [item.playerName for item in captured["votes_against"]] == ["Voter2"]
 
 
 @pytest.mark.asyncio

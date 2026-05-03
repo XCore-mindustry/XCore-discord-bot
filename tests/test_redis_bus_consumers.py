@@ -9,7 +9,6 @@ from xcore_protocol.generated.discord import (
 )
 from xcore_protocol.generated.shared import (
     ActorRefV1,
-    ActorRefV1ActorType,
     DiscordIdentityRefV1,
     ExpirationInfoV1,
     PlayerRefV1,
@@ -25,7 +24,6 @@ from xcore_discord_bot.contracts import (
     ModerationMuteCreatedV1,
     ModerationVoteKickCreatedV1,
     PlayerJoinLeaveV1,
-    RawEvent,
     ServerActionV1,
     ServerHeartbeatV1,
 )
@@ -237,12 +235,12 @@ async def test_consume_bans_dispatches_event(
     settings: Settings, mock_redis: AsyncMock
 ) -> None:
     payload = {
-        "uuid": "u-1",
-        "name": "pizduk",
-        "admin_name": "admin",
-        "admin_discord_id": "123",
+        "messageType": "moderation.ban.created",
+        "messageVersion": 1,
+        "target": {"playerUuid": "u-1", "playerName": "pizduk"},
+        "actor": {"actorName": "admin", "actorDiscordId": "123"},
         "reason": "rule",
-        "expire_date": "2026-03-01T10:00:00+00:00",
+        "expiration": {"expiresAt": "2026-03-01T10:00:00+00:00"},
     }
     mock_redis.xreadgroup.side_effect = [
         [
@@ -274,7 +272,6 @@ async def test_consume_bans_dispatches_event(
             actor=ActorRefV1(
                 actorName="admin",
                 actorDiscordId="123",
-                actorType=ActorRefV1ActorType.DISCORD,
             ),
             reason="rule",
             expiration=ExpirationInfoV1(expiresAt="2026-03-01T10:00:00+00:00"),
@@ -292,12 +289,12 @@ async def test_consume_mutes_dispatches_event(
     settings: Settings, mock_redis: AsyncMock
 ) -> None:
     payload = {
-        "uuid": "u-1",
-        "name": "pizduk",
-        "admin_name": "admin",
-        "admin_discord_id": "456",
+        "messageType": "moderation.mute.created",
+        "messageVersion": 1,
+        "target": {"playerUuid": "u-1", "playerName": "pizduk"},
+        "actor": {"actorName": "admin", "actorDiscordId": "456"},
         "reason": "rule",
-        "expire_date": "2026-03-01T10:00:00+00:00",
+        "expiration": {"expiresAt": "2026-03-01T10:00:00+00:00"},
     }
     mock_redis.xreadgroup.side_effect = [
         [
@@ -329,7 +326,6 @@ async def test_consume_mutes_dispatches_event(
             actor=ActorRefV1(
                 actorName="admin",
                 actorDiscordId="456",
-                actorType=ActorRefV1ActorType.DISCORD,
             ),
             reason="rule",
             expiration=ExpirationInfoV1(expiresAt="2026-03-01T10:00:00+00:00"),
@@ -347,17 +343,15 @@ async def test_consume_vote_kicks_dispatches_event(
     settings: Settings, mock_redis: AsyncMock
 ) -> None:
     payload = {
-        "targetName": "Target",
-        "targetPid": 42,
-        "targetUuid": "uuid-target",
-        "starterName": "Starter",
-        "starterPid": 7,
-        "starterDiscordId": "123456",
+        "messageType": "moderation.vote-kick.created",
+        "messageVersion": 1,
+        "target": {
+            "playerUuid": "uuid-target",
+            "playerPid": 42,
+            "playerName": "Target",
+        },
+        "actor": {"actorName": "Starter", "actorDiscordId": "123456"},
         "reason": "griefing",
-        "participants": [
-            {"playerName": "Starter", "playerPid": 7, "discordId": "123456"},
-            {"playerName": "Voter2", "playerPid": 8, "discordId": "654321"},
-        ],
         "votesFor": [{"playerName": "Starter", "playerPid": 7, "discordId": "123456"}],
         "votesAgainst": [
             {"playerName": "Voter2", "playerPid": 8, "discordId": "654321"}
@@ -397,7 +391,6 @@ async def test_consume_vote_kicks_dispatches_event(
             actor=ActorRefV1(
                 actorName="Starter",
                 actorDiscordId="123456",
-                actorType=ActorRefV1ActorType.DISCORD,
             ),
             reason="griefing",
             votesFor=(
@@ -414,70 +407,6 @@ async def test_consume_vote_kicks_dispatches_event(
                     discordId="654321",
                 ),
             ),
-        )
-    )
-
-
-@pytest.mark.asyncio
-async def test_consume_vote_kicks_preserves_legacy_starter_pid_without_vote_lists(
-    settings: Settings, mock_redis: AsyncMock
-) -> None:
-    payload = {
-        "targetName": "Target",
-        "targetPid": 42,
-        "targetUuid": "uuid-target",
-        "starterName": "Starter",
-        "starterPid": 7,
-        "starterDiscordId": "123456",
-        "reason": "griefing",
-        "votesFor": [],
-        "votesAgainst": [],
-    }
-    mock_redis.xreadgroup.side_effect = [
-        [
-            [
-                b"xcore:evt:moderation:votekick",
-                [
-                    (
-                        b"7-2a",
-                        {"payload_json": json.dumps(payload)},
-                    )
-                ],
-            ]
-        ],
-        KeyboardInterrupt("stop"),
-    ]
-
-    bus = RedisBus(settings)
-    bus._redis = mock_redis
-
-    callback = AsyncMock()
-    try:
-        await bus.consume_vote_kicks(callback)
-    except KeyboardInterrupt:
-        pass
-
-    callback.assert_called_once_with(
-        ModerationVoteKickCreatedV1(
-            target=PlayerRefV1(
-                playerUuid="uuid-target",
-                playerPid=42,
-                playerName="Target",
-            ),
-            actor=ActorRefV1(
-                actorName="Starter",
-                actorDiscordId="123456",
-                actorType=ActorRefV1ActorType.DISCORD,
-            ),
-            reason="griefing",
-            votesFor=(
-                VoteKickParticipantV1(
-                    playerName="Starter",
-                    playerPid=7,
-                    discordId="123456",
-                ),
-            ),
-            votesAgainst=(),
         )
     )
 
@@ -535,63 +464,6 @@ async def test_consume_discord_link_status_changed_dispatches_generated_event(
         b"xcore:evt:discord:link-status",
         f"{settings.redis_group_prefix}:discord-link-status",
         b"7-4",
-    )
-
-
-@pytest.mark.asyncio
-async def test_consume_discord_link_status_changed_accepts_legacy_flat_payload(
-    settings: Settings, mock_redis: AsyncMock
-) -> None:
-    payload = {
-        "playerUuid": "uuid-8",
-        "playerPid": "8",
-        "playerNickname": "Legacy",
-        "discordId": "654321",
-        "discordUsername": "legacy-user",
-        "action": "unlinked",
-        "server": "hexed",
-        "occurredAt": "123456789",
-    }
-    mock_redis.xreadgroup.side_effect = [
-        [
-            [
-                b"xcore:evt:discord:link-status",
-                [
-                    (
-                        b"7-5",
-                        {"payload_json": json.dumps(payload)},
-                    )
-                ],
-            ]
-        ],
-        KeyboardInterrupt("stop"),
-    ]
-
-    bus = RedisBus(settings)
-    bus._redis = mock_redis
-
-    callback = AsyncMock()
-    try:
-        await bus.consume_discord_link_status_changed(callback)
-    except KeyboardInterrupt:
-        pass
-
-    callback.assert_called_once_with(
-        DiscordLinkStatusChangedV1(
-            player=PlayerRefV1(playerUuid="uuid-8", playerPid=8, playerName="Legacy"),
-            discord=DiscordIdentityRefV1(
-                discordId="654321",
-                discordUsername="legacy-user",
-            ),
-            action=DiscordLinkStatusChangedV1Action.UNLINKED,
-            server="hexed",
-            occurredAt="1970-01-02T10:17:36.789+00:00",
-        )
-    )
-    mock_redis.xack.assert_called_once_with(
-        b"xcore:evt:discord:link-status",
-        f"{settings.redis_group_prefix}:discord-link-status",
-        b"7-5",
     )
 
 
@@ -750,47 +622,6 @@ async def test_consume_global_chat_callback_failure_not_acked(
 
 
 @pytest.mark.asyncio
-async def test_consume_raw_events_dispatches_event(
-    settings: Settings, mock_redis: AsyncMock
-) -> None:
-    mock_redis.xreadgroup.side_effect = [
-        [
-            [
-                b"xcore:evt:raw",
-                [
-                    (
-                        b"9-0",
-                        {
-                            "event_type": "event.unknown",
-                            "payload_json": '{"x":42}',
-                        },
-                    )
-                ],
-            ]
-        ],
-        KeyboardInterrupt("stop"),
-    ]
-
-    bus = RedisBus(settings)
-    bus._redis = mock_redis
-
-    callback = AsyncMock()
-    try:
-        await bus.consume_raw_events(callback)
-    except KeyboardInterrupt:
-        pass
-
-    callback.assert_called_once_with(
-        RawEvent(event_type="event.unknown", payload={"x": 42})
-    )
-    mock_redis.xack.assert_called_once_with(
-        b"xcore:evt:raw",
-        f"{settings.redis_group_prefix}:discord-raw",
-        b"9-0",
-    )
-
-
-@pytest.mark.asyncio
 async def test_consume_server_heartbeats_dispatches_and_updates_registry(
     settings: Settings, mock_redis: AsyncMock
 ) -> None:
@@ -837,53 +668,6 @@ async def test_consume_server_heartbeats_dispatches_and_updates_registry(
         )
     )
     assert server_registry.get_channel_for_server("mini-pvp") == 321
-
-
-@pytest.mark.asyncio
-async def test_consume_raw_events_updates_registry_for_heartbeat_type(
-    settings: Settings, mock_redis: AsyncMock
-) -> None:
-    payload = {
-        "serverName": "mini-pvp",
-        "discordChannelId": 555,
-        "players": 2,
-        "maxPlayers": 10,
-        "version": "v2",
-    }
-    mock_redis.xreadgroup.side_effect = [
-        [
-            [
-                b"xcore:evt:raw",
-                [
-                    (
-                        b"11-0",
-                        {
-                            "event_type": "org.xcore.plugin.event.SocketEvents$ServerHeartbeatEvent",
-                            "payload_json": json.dumps(payload),
-                        },
-                    )
-                ],
-            ]
-        ],
-        KeyboardInterrupt("stop"),
-    ]
-
-    bus = RedisBus(settings)
-    bus._redis = mock_redis
-
-    callback = AsyncMock()
-    try:
-        await bus.consume_raw_events(callback)
-    except KeyboardInterrupt:
-        pass
-
-    callback.assert_called_once_with(
-        RawEvent(
-            event_type="org.xcore.plugin.event.SocketEvents$ServerHeartbeatEvent",
-            payload=payload,
-        )
-    )
-    assert server_registry.get_channel_for_server("mini-pvp") == 555
 
 
 @pytest.mark.asyncio

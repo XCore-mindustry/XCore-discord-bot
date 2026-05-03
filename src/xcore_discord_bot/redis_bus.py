@@ -38,7 +38,6 @@ from .contracts import (
     ChatGlobalV1,
     ChatMessageV1,
     DiscordLinkStatusChangedV1,
-    LEGACY_HEARTBEAT_EVENT_TYPES,
     ModerationBanCreatedV1,
     ModerationMuteCreatedV1,
     ModerationVoteKickCreatedV1,
@@ -51,7 +50,6 @@ from .contracts import (
     parse_server_action_payload,
     parse_vote_kick_payload,
     PlayerJoinLeaveV1,
-    RawEvent,
     ServerActionV1,
     ServerHeartbeatV1,
     parse_server_heartbeat_payload,
@@ -193,22 +191,6 @@ class RedisBus:
             group_suffix="discord-global-chat",
             parse_payload=parse_global_chat_payload,
             callback=callback,
-        )
-
-    async def consume_raw_events(
-        self, callback: Callable[[RawEvent], Awaitable[None]]
-    ) -> None:
-        async def wrapped(event: RawEvent) -> None:
-            if event.event_type in LEGACY_HEARTBEAT_EVENT_TYPES:
-                heartbeat = parse_server_heartbeat_payload(event.payload)
-                self._update_registry_from_heartbeat(heartbeat)
-            await callback(event)
-
-        await self._consume_events(
-            stream="xcore:evt:raw",
-            group_suffix="discord-raw",
-            parse_fields=RawEvent.from_fields,
-            callback=wrapped,
         )
 
     async def consume_server_heartbeats(

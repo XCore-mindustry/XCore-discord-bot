@@ -219,7 +219,6 @@ class XCoreDiscordBot(commands.Bot):
         self._store = store
         self._chat_consumer_task: asyncio.Task[None] | None = None
         self._global_chat_consumer_task: asyncio.Task[None] | None = None
-        self._raw_consumer_task: asyncio.Task[None] | None = None
         self._join_leave_consumer_task: asyncio.Task[None] | None = None
         self._server_action_consumer_task: asyncio.Task[None] | None = None
         self._ban_consumer_task: asyncio.Task[None] | None = None
@@ -861,11 +860,6 @@ class XCoreDiscordBot(commands.Bot):
     ) -> None:
         await self._bus.consume_global_chat(callback)
 
-    async def consume_raw_events_stream(
-        self, callback: Callable[..., Awaitable[None]]
-    ) -> None:
-        await self._bus.consume_raw_events(callback)
-
     async def consume_server_heartbeats_stream(
         self, callback: Callable[..., Awaitable[None]]
     ) -> None:
@@ -922,9 +916,6 @@ class XCoreDiscordBot(commands.Bot):
         self._global_chat_consumer_task = asyncio.create_task(
             runtime_consumers.consume_global_chat(self),
             name="redis-global-chat-consumer",
-        )
-        self._raw_consumer_task = asyncio.create_task(
-            runtime_consumers.consume_raw_events(self), name="redis-raw-consumer"
         )
         self._join_leave_consumer_task = asyncio.create_task(
             runtime_consumers.consume_join_leave(self),
@@ -1051,7 +1042,6 @@ class XCoreDiscordBot(commands.Bot):
         for task in (
             self._chat_consumer_task,
             self._global_chat_consumer_task,
-            self._raw_consumer_task,
             self._join_leave_consumer_task,
             self._server_action_consumer_task,
             self._ban_consumer_task,
@@ -1070,7 +1060,6 @@ class XCoreDiscordBot(commands.Bot):
 
         self._chat_consumer_task = None
         self._global_chat_consumer_task = None
-        self._raw_consumer_task = None
         self._join_leave_consumer_task = None
         self._server_action_consumer_task = None
         self._ban_consumer_task = None

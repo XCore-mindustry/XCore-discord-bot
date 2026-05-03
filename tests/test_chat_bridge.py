@@ -39,7 +39,7 @@ async def test_consume_game_chat_drops_bot_producer(settings, mock_redis):
                     b"123-0",
                     {
                         b"producer": b"discord-bot",
-                        b"payload_json": b'{"authorName": "Player", "message": "Hi", "server": "test-server"}',
+                        b"payload_json": b'{"messageType": "chat.message", "messageVersion": 1, "authorName": "Player", "message": "Hi", "server": "test-server"}',
                     },
                 )
             ],
@@ -80,7 +80,7 @@ async def test_consume_game_chat_allows_server_producer(settings, mock_redis):
                     b"123-0",
                     {
                         b"producer": b"server:test-server",
-                        b"payload_json": b'{"authorName": "Player", "message": "Hi", "server": "test-server"}',
+                        b"payload_json": b'{"messageType": "chat.message", "messageVersion": 1, "authorName": "Player", "message": "Hi", "server": "test-server"}',
                     },
                 )
             ],
