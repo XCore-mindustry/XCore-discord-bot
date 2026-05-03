@@ -369,6 +369,87 @@ def _to_generated_vote_kick_participant(
     )
 
 
+def _vote_kick_participant_matches_starter(
+    participant: VoteKickParticipantV1,
+    *,
+    starter_name: str,
+    starter_pid: int | None,
+    starter_discord_id: str | None,
+) -> bool:
+    normalized_discord_id = str(starter_discord_id or "").strip() or None
+    participant_discord_id = str(participant.discordId or "").strip() or None
+
+    if (
+        normalized_discord_id is not None
+        and participant_discord_id == normalized_discord_id
+    ):
+        return True
+    if starter_pid is not None and participant.playerPid == starter_pid:
+        return True
+    return participant.playerName == starter_name
+
+
+def _preserve_legacy_starter_pid(
+    votes_for: tuple[VoteKickParticipantV1, ...],
+    votes_against: tuple[VoteKickParticipantV1, ...],
+    *,
+    starter_name: str,
+    starter_pid: int | None,
+    starter_discord_id: str | None,
+) -> tuple[tuple[VoteKickParticipantV1, ...], tuple[VoteKickParticipantV1, ...]]:
+    if starter_pid is None:
+        return votes_for, votes_against
+
+    normalized_discord_id = str(starter_discord_id or "").strip() or None
+
+    def patch_participants(
+        participants: tuple[VoteKickParticipantV1, ...],
+    ) -> tuple[tuple[VoteKickParticipantV1, ...], bool]:
+        matched = False
+        patched: list[VoteKickParticipantV1] = []
+        for participant in participants:
+            if not _vote_kick_participant_matches_starter(
+                participant,
+                starter_name=starter_name,
+                starter_pid=starter_pid,
+                starter_discord_id=normalized_discord_id,
+            ):
+                patched.append(participant)
+                continue
+
+            matched = True
+            if participant.playerPid is not None:
+                patched.append(participant)
+                continue
+
+            patched.append(
+                VoteKickParticipantV1(
+                    playerName=participant.playerName,
+                    playerPid=starter_pid,
+                    discordId=participant.discordId,
+                )
+            )
+
+        return tuple(patched), matched
+
+    patched_votes_for, matched_votes_for = patch_participants(votes_for)
+    patched_votes_against, matched_votes_against = patch_participants(votes_against)
+    if matched_votes_for or matched_votes_against:
+        return patched_votes_for, patched_votes_against
+
+    return (
+        patched_votes_for
+        + (
+            VoteKickParticipantV1(
+                playerName=starter_name,
+                playerPid=starter_pid,
+                discordId=normalized_discord_id,
+            ),
+        ),
+        patched_votes_against,
+    )
+
+
 class _LegacyVoteKickPayload(_FrozenModel):
     target_name: str = Field(
         validation_alias=AliasChoices("targetName", "target_name", "target", "name")
@@ -507,6 +588,13 @@ def parse_vote_kick_payload(payload: dict[str, Any]) -> ModerationVoteKickCreate
         return ModerationVoteKickCreatedV1.from_payload(payload)
     except (TypeError, ValueError):
         legacy = _LegacyVoteKickPayload.from_payload(payload)
+        votes_for, votes_against = _preserve_legacy_starter_pid(
+            legacy.votes_for,
+            legacy.votes_against,
+            starter_name=legacy.starter_name,
+            starter_pid=legacy.starter_pid,
+            starter_discord_id=legacy.starter_discord_id,
+        )
         return ModerationVoteKickCreatedV1(
             target=_build_player_ref(
                 uuid=legacy.target_uuid,
@@ -518,8 +606,8 @@ def parse_vote_kick_payload(payload: dict[str, Any]) -> ModerationVoteKickCreate
                 discord_id=legacy.starter_discord_id,
             ),
             reason=legacy.reason,
-            votesFor=legacy.votes_for,
-            votesAgainst=legacy.votes_against,
+            votesFor=votes_for,
+            votesAgainst=votes_against,
         )
 
 

@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 from xcore_protocol.generated.discord import DiscordLinkStatusChangedV1Action
-from xcore_protocol.generated.shared import DiscordIdentityRefV1, PlayerRefV1
+from xcore_protocol.generated.shared import (
+    DiscordIdentityRefV1,
+    PlayerRefV1,
+    VoteKickParticipantV1,
+)
 
 from xcore_discord_bot.contracts import (
     ChatGlobalV1,
@@ -243,6 +247,53 @@ def test_vote_kick_payload_preserves_legacy_target_without_uuid() -> None:
     assert event.target.playerUuid == "legacy:Target"
     assert event.actor.actorName == "Starter"
     assert event.actor.actorDiscordId == "123456"
+
+
+def test_vote_kick_payload_synthesizes_starter_participant_when_legacy_pid_would_be_lost() -> (
+    None
+):
+    payload = {
+        "targetName": "Target",
+        "targetPid": 42,
+        "starterName": "Starter",
+        "starterPid": 7,
+        "starterDiscordId": "123456",
+        "reason": "griefing",
+        "votesFor": [],
+        "votesAgainst": [],
+    }
+
+    event = parse_vote_kick_payload(payload)
+
+    assert event.votesFor == (
+        VoteKickParticipantV1(
+            playerName="Starter",
+            playerPid=7,
+            discordId="123456",
+        ),
+    )
+
+
+def test_vote_kick_payload_backfills_missing_pid_on_matching_starter_participant() -> (
+    None
+):
+    payload = {
+        "targetName": "Target",
+        "targetPid": 42,
+        "starterName": "Starter",
+        "starterPid": 7,
+        "starterDiscordId": "123456",
+        "reason": "griefing",
+        "votesFor": [{"playerName": "Starter", "discordId": "123456"}],
+        "votesAgainst": [],
+    }
+
+    event = parse_vote_kick_payload(payload)
+
+    assert event.votesFor is not None
+    assert event.votesFor[0].playerName == "Starter"
+    assert event.votesFor[0].playerPid == 7
+    assert event.votesFor[0].discordId == "123456"
 
 
 def test_vote_kick_participant_adapter_still_accepts_legacy_aliases() -> None:

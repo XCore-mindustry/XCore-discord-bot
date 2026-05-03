@@ -419,6 +419,70 @@ async def test_consume_vote_kicks_dispatches_event(
 
 
 @pytest.mark.asyncio
+async def test_consume_vote_kicks_preserves_legacy_starter_pid_without_vote_lists(
+    settings: Settings, mock_redis: AsyncMock
+) -> None:
+    payload = {
+        "targetName": "Target",
+        "targetPid": 42,
+        "targetUuid": "uuid-target",
+        "starterName": "Starter",
+        "starterPid": 7,
+        "starterDiscordId": "123456",
+        "reason": "griefing",
+        "votesFor": [],
+        "votesAgainst": [],
+    }
+    mock_redis.xreadgroup.side_effect = [
+        [
+            [
+                b"xcore:evt:moderation:votekick",
+                [
+                    (
+                        b"7-2a",
+                        {"payload_json": json.dumps(payload)},
+                    )
+                ],
+            ]
+        ],
+        KeyboardInterrupt("stop"),
+    ]
+
+    bus = RedisBus(settings)
+    bus._redis = mock_redis
+
+    callback = AsyncMock()
+    try:
+        await bus.consume_vote_kicks(callback)
+    except KeyboardInterrupt:
+        pass
+
+    callback.assert_called_once_with(
+        ModerationVoteKickCreatedV1(
+            target=PlayerRefV1(
+                playerUuid="uuid-target",
+                playerPid=42,
+                playerName="Target",
+            ),
+            actor=ActorRefV1(
+                actorName="Starter",
+                actorDiscordId="123456",
+                actorType=ActorRefV1ActorType.DISCORD,
+            ),
+            reason="griefing",
+            votesFor=(
+                VoteKickParticipantV1(
+                    playerName="Starter",
+                    playerPid=7,
+                    discordId="123456",
+                ),
+            ),
+            votesAgainst=(),
+        )
+    )
+
+
+@pytest.mark.asyncio
 async def test_consume_discord_link_status_changed_dispatches_generated_event(
     settings: Settings, mock_redis: AsyncMock
 ) -> None:
