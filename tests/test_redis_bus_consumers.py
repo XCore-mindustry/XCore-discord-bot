@@ -671,6 +671,56 @@ async def test_consume_server_heartbeats_dispatches_and_updates_registry(
 
 
 @pytest.mark.asyncio
+async def test_consume_server_heartbeats_legacy_payload_updates_registry(
+    settings: Settings, mock_redis: AsyncMock
+) -> None:
+    """Legacy snake_case heartbeat still updates the registry via compat normalizer."""
+    payload = {
+        "messageType": "server.heartbeat",
+        "messageVersion": 1,
+        "server_name": "old-server",
+        "discord_channel_id": 555,
+        "max_players": 30,
+        "players": 15,
+        "version": "v-legacy",
+    }
+    mock_redis.xreadgroup.side_effect = [
+        [
+            [
+                b"xcore:evt:server:heartbeat",
+                [
+                    (
+                        b"20-0",
+                        {"payload_json": json.dumps(payload)},
+                    )
+                ],
+            ]
+        ],
+        KeyboardInterrupt("stop"),
+    ]
+
+    bus = RedisBus(settings)
+    bus._redis = mock_redis
+
+    callback = AsyncMock()
+    try:
+        await bus.consume_server_heartbeats(callback)
+    except KeyboardInterrupt:
+        pass
+
+    callback.assert_called_once_with(
+        ServerHeartbeatV1(
+            serverName="old-server",
+            discordChannelId=555,
+            players=15,
+            maxPlayers=30,
+            version="v-legacy",
+        )
+    )
+    assert server_registry.get_channel_for_server("old-server") == 555
+
+
+@pytest.mark.asyncio
 async def test_consume_game_chat_dispatches_generated_event(
     settings: Settings, mock_redis: AsyncMock
 ) -> None:

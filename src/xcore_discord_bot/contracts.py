@@ -14,6 +14,8 @@ from xcore_protocol.generated import (
     ServerHeartbeatV1,
 )
 
+from .protocol_compat import normalize_server_heartbeat_payload
+
 
 def parse_chat_message_payload(payload: dict[str, Any]) -> ChatMessageV1:
     return ChatMessageV1.from_payload(payload)
@@ -50,7 +52,8 @@ def parse_discord_link_status_payload(
 
 
 def parse_server_heartbeat_payload(payload: dict[str, Any]) -> ServerHeartbeatV1:
-    return ServerHeartbeatV1.from_payload(payload)
+    normalized = normalize_server_heartbeat_payload(payload)
+    return ServerHeartbeatV1.from_payload(normalized)
 
 
 __all__ = [

@@ -67,6 +67,12 @@ class _Bot:
         assert uuid == "uuid-7"
         return PlayerRecord(pid=7, uuid="uuid-7", nickname="Target")
 
+    async def _get_player_or_reply(
+        self, interaction: _Interaction, player_id: int
+    ) -> PlayerRecord | None:
+        assert player_id == 7
+        return PlayerRecord(pid=7, uuid="uuid-7", nickname="Target", discord_id="555")
+
     async def publish_discord_link_confirm(self, **kwargs) -> None:  # noqa: ANN003
         self.published.append(kwargs)
 
@@ -101,6 +107,21 @@ async def test_cmd_link_publishes_confirm_event() -> None:
     assert interaction.response.sent == [
         ("Link request sent for `Target` (`pid=7`). Return in-game in a moment.", True)
     ]
+
+
+@pytest.mark.asyncio
+async def test_cmd_unlink_publishes_with_display_name() -> None:
+    bot = _Bot()
+    interaction = _Interaction()
+
+    from xcore_discord_bot.handlers_linking import cmd_unlink
+
+    await cmd_unlink(cast(Any, bot), cast(Any, interaction), 7)
+
+    assert len(bot.published) == 1
+    unlink_call = bot.published[0]
+    assert unlink_call["actor_name"] == "discord-user"
+    assert unlink_call["actor_name"] != "discord"
 
 
 @pytest.mark.asyncio
