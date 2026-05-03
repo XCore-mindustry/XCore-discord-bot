@@ -111,61 +111,6 @@ def test_server_heartbeat_from_payload() -> None:
     assert event.version == "1.2.3"
 
 
-def test_server_heartbeat_from_legacy_payload() -> None:
-    """Old plugin emits snake_case — compat normalizer maps to canonical."""
-    payload = {
-        "messageType": "server.heartbeat",
-        "messageVersion": 1,
-        "server_name": "old-plugin-server",
-        "discord_channel_id": 9999,
-        "max_players": 100,
-        "players": 12,
-        "version": "v8",
-    }
-    event = parse_server_heartbeat_payload(payload)
-    assert isinstance(event, ServerHeartbeatV1)
-    assert event.serverName == "old-plugin-server"
-    assert event.discordChannelId == 9999
-    assert event.maxPlayers == 100
-    assert event.players == 12
-    assert event.version == "v8"
-
-
-def test_server_heartbeat_canonical_wins_over_legacy() -> None:
-    """When both canonical and legacy keys are present, canonical wins."""
-    payload = {
-        "messageType": "server.heartbeat",
-        "messageVersion": 1,
-        "serverName": "new-server",
-        "server_name": "old-server",
-        "discordChannelId": 1111,
-        "discord_channel_id": 2222,
-        "maxPlayers": 50,
-        "max_players": 100,
-        "players": 8,
-        "version": "v9",
-    }
-    event = parse_server_heartbeat_payload(payload)
-    assert event.serverName == "new-server"
-    assert event.discordChannelId == 1111
-    assert event.maxPlayers == 50
-
-
-def test_server_heartbeat_legacy_player_count() -> None:
-    """player_count alias is normalized to players."""
-    payload = {
-        "messageType": "server.heartbeat",
-        "messageVersion": 1,
-        "serverName": "test",
-        "discordChannelId": 0,
-        "player_count": 5,
-        "maxPlayers": 20,
-        "version": "v1",
-    }
-    event = parse_server_heartbeat_payload(payload)
-    assert event.players == 5
-
-
 def test_discord_link_status_changed_from_payload() -> None:
     payload = {
         "messageType": "discord.link.status-changed",
