@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, cast
 
 import discord
 from discord import Interaction
+from xcore_protocol.generated.shared import ActorRefV1ActorType
 
 from .contracts import VoteKickParticipant
 from .dto import PlayerRecord
@@ -519,10 +520,10 @@ async def cmd_remove_admin(
             discord_username=target_player.discord_username,
             admin=False,
             source_name="NONE",
-            source_type="discord",
+            source_type=ActorRefV1ActorType.DISCORD,
             actor_name=interaction.user.display_name,
             actor_discord_id=str(interaction.user.id),
-            actor_type="discord",
+            actor_type=ActorRefV1ActorType.DISCORD,
             reason="/admin remove",
         )
         any_changed = any_changed or changed
@@ -595,10 +596,10 @@ async def cmd_add_admin(
             discord_username=target_player.discord_username,
             admin=True,
             source_name="DISCORD_ROLE",
-            source_type="discord",
+            source_type=ActorRefV1ActorType.DISCORD,
             actor_name=interaction.user.display_name,
             actor_discord_id=str(interaction.user.id),
-            actor_type="discord",
+            actor_type=ActorRefV1ActorType.DISCORD,
             reason="/admin add",
         )
         any_changed = any_changed or changed

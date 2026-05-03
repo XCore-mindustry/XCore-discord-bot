@@ -2,6 +2,11 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from xcore_protocol.generated.chat import (
+    PlayerActiveBadgeChangedCommandV1,
+    PlayerBadgeInventoryChangedCommandV1,
+    PlayerPasswordResetCommandV1,
+)
 from xcore_protocol.generated.discord import (
     DiscordAdminAccessChangedCommandV1,
     DiscordLinkConfirmCommandV1,
@@ -145,4 +150,40 @@ def build_discord_admin_access_changed_command(
         reason=reason,
         server=server,
         occurredAt=utc_now_iso8601(),
+    )
+
+
+def build_player_active_badge_changed_command(
+    uuid_value: str,
+    active_badge: str,
+    server: str,
+) -> PlayerActiveBadgeChangedCommandV1:
+    return PlayerActiveBadgeChangedCommandV1(
+        playerUuid=uuid_value,
+        activeBadge=active_badge,
+        server=server,
+    )
+
+
+def build_player_badge_inventory_changed_command(
+    uuid_value: str,
+    active_badge: str,
+    unlocked_badges: list[str] | tuple[str, ...],
+    server: str,
+) -> PlayerBadgeInventoryChangedCommandV1:
+    return PlayerBadgeInventoryChangedCommandV1(
+        playerUuid=uuid_value,
+        activeBadge=active_badge,
+        unlockedBadges=tuple(unlocked_badges),
+        server=server,
+    )
+
+
+def build_player_password_reset_command(
+    uuid_value: str,
+    server: str,
+) -> PlayerPasswordResetCommandV1:
+    return PlayerPasswordResetCommandV1(
+        playerUuid=uuid_value,
+        server=server,
     )

@@ -11,12 +11,17 @@ from typing import Any, Awaitable, Callable, Mapping, cast
 from redis.asyncio import Redis
 from redis.exceptions import ResponseError
 
+from xcore_protocol.generated.shared import ActorRefV1ActorType
+
 from .protocol_outbound import (
     build_discord_admin_access_changed_command,
     build_discord_link_confirm_command,
     build_discord_unlink_command,
     build_moderation_kick_banned_command,
     build_moderation_pardon_command,
+    build_player_active_badge_changed_command,
+    build_player_badge_inventory_changed_command,
+    build_player_password_reset_command,
 )
 
 from .contracts import (
@@ -603,10 +608,10 @@ class RedisBus:
         discord_username: str | None,
         admin: bool,
         source_name: str,
-        source_type: str,
+        source_type: ActorRefV1ActorType,
         actor_name: str,
         actor_discord_id: str | None,
-        actor_type: str,
+        actor_type: ActorRefV1ActorType,
         reason: str,
     ) -> None:
         await self._publish_for_all_servers(
@@ -672,14 +677,14 @@ class RedisBus:
         normalized_badge = (active_badge or "").strip()
         await self._publish_for_all_servers(
             stream_prefix="xcore:cmd:player-active-badge",
-            event_type="player.active_badge",
+            event_type="player.active-badge.changed.command",
             ttl_ms=120_000,
             idempotency_prefix="player.active_badge",
-            payload_builder=lambda server: {
-                "uuid": uuid_value,
-                "activeBadge": normalized_badge,
-                "server": server,
-            },
+            payload_builder=lambda server: build_player_active_badge_changed_command(
+                uuid_value=uuid_value,
+                active_badge=normalized_badge,
+                server=server,
+            ).to_payload(),
         )
 
     async def publish_player_badge_inventory_changed(
@@ -693,27 +698,27 @@ class RedisBus:
         badges = [str(badge).strip() for badge in unlocked_badges if str(badge).strip()]
         await self._publish_for_all_servers(
             stream_prefix="xcore:cmd:player-badge-inventory",
-            event_type="player.badge_inventory",
+            event_type="player.badge-inventory.changed.command",
             ttl_ms=120_000,
             idempotency_prefix="player.badge_inventory",
-            payload_builder=lambda server: {
-                "uuid": uuid_value,
-                "activeBadge": normalized_badge,
-                "unlockedBadges": badges,
-                "server": server,
-            },
+            payload_builder=lambda server: build_player_badge_inventory_changed_command(
+                uuid_value=uuid_value,
+                active_badge=normalized_badge,
+                unlocked_badges=badges,
+                server=server,
+            ).to_payload(),
         )
 
     async def publish_player_password_reset(self, *, uuid_value: str) -> None:
         await self._publish_for_all_servers(
             stream_prefix="xcore:cmd:player-password-reset",
-            event_type="player.password_reset",
+            event_type="player.password-reset.command",
             ttl_ms=120_000,
             idempotency_prefix="player.password_reset",
-            payload_builder=lambda server: {
-                "uuid": uuid_value,
-                "server": server,
-            },
+            payload_builder=lambda server: build_player_password_reset_command(
+                uuid_value=uuid_value,
+                server=server,
+            ).to_payload(),
         )
 
     async def publish_discord_link_confirm(

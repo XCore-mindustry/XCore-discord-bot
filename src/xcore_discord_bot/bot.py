@@ -25,6 +25,8 @@ from .moderation_views import (
 )
 from .mongo_store import MongoStore
 from .presentation import build_servers_embed
+from xcore_protocol.generated.shared import ActorRefV1ActorType
+
 from .registry import server_registry
 from .redis_bus import RedisBus
 from . import runtime_consumers
@@ -414,10 +416,10 @@ class XCoreDiscordBot(commands.Bot):
         discord_username: str | None,
         admin: bool,
         source_name: str,
-        source_type: str,
+        source_type: ActorRefV1ActorType,
         actor_name: str,
         actor_discord_id: str | None,
-        actor_type: str,
+        actor_type: ActorRefV1ActorType,
         reason: str,
     ) -> None:
         await self._bus.publish_discord_admin_access_changed(
@@ -685,10 +687,10 @@ class XCoreDiscordBot(commands.Bot):
                 discord_username=player.discord_username,
                 admin=False,
                 source_name="NONE",
-                source_type="system",
+                source_type=ActorRefV1ActorType.SYSTEM,
                 actor_name="system/reconcile",
                 actor_discord_id=None,
-                actor_type="system",
+                actor_type=ActorRefV1ActorType.SYSTEM,
                 reason="discord role missing during reconcile",
             )
             if changed:
@@ -747,10 +749,10 @@ class XCoreDiscordBot(commands.Bot):
                     discord_username=player.discord_username,
                     admin=True,
                     source_name="DISCORD_ROLE",
-                    source_type="discord",
+                    source_type=ActorRefV1ActorType.DISCORD,
                     actor_name="system/reconcile",
                     actor_discord_id=None,
-                    actor_type="system",
+                    actor_type=ActorRefV1ActorType.SYSTEM,
                     reason="discord role present during reconcile",
                 )
                 if changed:
