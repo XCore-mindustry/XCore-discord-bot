@@ -45,9 +45,6 @@ class PlayerRecord:
     created_at: object = None
     updated_at: object = None
 
-    def get(self, key: str, default: object = None) -> object:
-        return getattr(self, key, default)
-
 
 @dataclass(frozen=True, kw_only=True)
 class BanRecord:
@@ -61,10 +58,6 @@ class BanRecord:
     uuid: str | None = None
     ip: str | None = None
     pid: int | None = None
-
-    def get(self, key: str, default: object = None) -> object:
-        return getattr(self, key, default)
-
 
 def record_identifiers(
     record: PlayerRecord | BanRecord,
@@ -86,10 +79,6 @@ class MuteRecord:
     uuid: str | None = None
     pid: int | None = None
 
-    def get(self, key: str, default: object = None) -> object:
-        return getattr(self, key, default)
-
-
 @dataclass(frozen=True, kw_only=True)
 class AuditRecordSummary:
     audit_id: str
@@ -104,10 +93,6 @@ class AuditRecordSummary:
     expires_at: object = None
     occurred_at: object = None
     created_at_epoch_ms: int = 0
-
-    def get(self, key: str, default: object = None) -> object:
-        return getattr(self, key, default)
-
 
 @dataclass(frozen=True, kw_only=True)
 class AccountMergeResult:
