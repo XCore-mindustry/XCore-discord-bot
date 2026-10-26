@@ -515,8 +515,12 @@ async def test_mongo_store_merge_rewrites_punishment_pids() -> None:
     assert result.ban_transferred is True
 
     kept, transferred = db["bans"].docs
-    # Closed account keeps its own punishment with the tombstone PID.
-    assert kept == dict(SOURCE_BAN, pid=20)
+    # Closed account keeps its own punishment with the tombstone PID, banning its
+    # device UUID only: the IP now belongs to the surviving account's ban.
+    expected = dict(SOURCE_BAN, pid=20)
+    del expected["ip"]
+    assert kept == expected
+    assert transferred["ip"] == "1.2.3.4"
     # Transferred ban belongs to the surviving account (PID 10 in this scenario).
     assert transferred["uuid"] == "target-uuid"
     assert transferred["pid"] == 10
@@ -533,6 +537,37 @@ async def test_mongo_store_merge_gives_the_transferred_ban_its_own_id() -> None:
     assert result.success is True
     assert [ban["ban_id"] for ban in db["bans"].docs] == [7, 8]
     assert db["counters"].docs == [{"_id": "ban_id", "seq": 8}]
+
+
+@pytest.mark.asyncio
+async def test_mongo_store_merge_unban_of_the_surviving_account_lifts_the_ip_ban() -> (
+    None
+):
+    store, _ = await _merge_store(bans=(SOURCE_BAN,))
+    await _merge(store)
+
+    survivor_ban = await store.find_ban(uuid="target-uuid", ip="1.2.3.4")
+    assert survivor_ban is not None and survivor_ban.ban_id == 8
+    await store.delete_ban(uuid="target-uuid", ip="1.2.3.4", ban_id=8)
+
+    assert await store.find_ban(uuid="target-uuid", ip="1.2.3.4") is None
+    # The closed account's device stays banned.
+    assert await store.find_ban(uuid="source-uuid", ip=None) is not None
+
+
+@pytest.mark.asyncio
+async def test_mongo_store_merge_strips_the_ip_when_the_target_has_its_own_ban() -> (
+    None
+):
+    target_ban = dict(SOURCE_BAN, _id="ban-2", ban_id=3, uuid="target-uuid", pid=20)
+    store, db = await _merge_store(bans=(SOURCE_BAN, target_ban))
+
+    result = await _merge(store)
+
+    assert result.ban_transferred is False
+    kept, own = db["bans"].docs
+    assert "ip" not in kept
+    assert own["ip"] == "1.2.3.4"
 
 
 def _fail_call(collection: Collection, method: str, call: int) -> None:

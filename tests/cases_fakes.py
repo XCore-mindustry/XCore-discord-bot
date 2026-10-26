@@ -199,7 +199,9 @@ class Collection:
         self.docs.append(deepcopy(doc))
 
     async def delete_many(self, query):
+        before = len(self.docs)
         self.docs = [doc for doc in self.docs if not matches(doc, query)]
+        return SimpleNamespace(deleted_count=before - len(self.docs))
 
     async def find_one_and_update(
         self,

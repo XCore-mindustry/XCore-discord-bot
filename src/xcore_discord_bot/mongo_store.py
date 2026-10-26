@@ -1198,14 +1198,17 @@ class MongoStore:
 
         Returns whether a copy was made. Both documents get the PID their account now has.
         """
+        tombstone: dict[str, Any] = {"$set": {"pid": plan.tombstone_pid}}
+        if collection == "bans":
+            # Bans match by UUID or IP and unban deletes one ban_id, so a kept IP would
+            # keep banning the surviving account after its own ban is lifted.
+            tombstone["$unset"] = {"ip": ""}
         source_punishment = await db[collection].find_one(
             {"uuid": plan.source_uuid}, session=session
         )
         if source_punishment is not None:
             await db[collection].update_one(
-                {"_id": source_punishment["_id"]},
-                {"$set": {"pid": plan.tombstone_pid}},
-                session=session,
+                {"_id": source_punishment["_id"]}, tombstone, session=session
             )
 
         target_punishment = await db[collection].find_one(
