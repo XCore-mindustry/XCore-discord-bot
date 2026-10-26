@@ -150,9 +150,10 @@ async def test_perform_ban_allocates_identity_audits_kicks_and_logs_case() -> No
         duration_ms=86_400_000,
     )
     assert await game.kicks() == [("uuid-42", "1.2.3.4")]
-    assert await _claims(bot) == {
-        "ban-confirm:uuid-42:1.2.3.4:1d:griefing:case:57": 600
-    }
+    claims = await _claims(bot)
+    assert claims.keys() == {"ban-confirm:uuid-42:1.2.3.4:1d:griefing:case:57"}
+    # Time spent after the claim can only shorten the 600-second TTL.
+    assert all(590 < ttl <= 600 for ttl in claims.values())
     fields = {field.name: field.value for field in channel.embeds[0].fields}
     assert fields["Ban"] == "B-1" and fields["Case"] == "#57"
     assert fields["Admin"] == "Moderator (<@123>)"
