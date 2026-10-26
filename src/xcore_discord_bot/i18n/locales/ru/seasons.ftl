@@ -9,26 +9,27 @@ season-ends = Конец
 season-ended = Закончился
 season-wrapping-up = Подводим итоги…
 season-players = Игроки
+season-count = `{ NUMBER($count, useGrouping: 1) }`
 season-matches = Матчи
 season-prizes = Призы
 season-prize-badge = 🎖️ значок «{ $badge }»
 season-top-title = { $season } · Топ
 season-top-empty = В этом сезоне ещё никто не играл.
-season-top-wins = { $wins }/{ $matches } побед
+season-top-wins = { NUMBER($wins, useGrouping: 1) }/{ NUMBER($matches, useGrouping: 1) } побед
 season-top-footer = { $players ->
-        [one] { $players } игрок в этом сезоне
-        [few] { $players } игрока в этом сезоне
-        [many] { $players } игроков в этом сезоне
-       *[other] { $players } игрока в этом сезоне
+        [one] { NUMBER($players, useGrouping: 1) } игрок в этом сезоне
+        [few] { NUMBER($players, useGrouping: 1) } игрока в этом сезоне
+        [many] { NUMBER($players, useGrouping: 1) } игроков в этом сезоне
+       *[other] { NUMBER($players, useGrouping: 1) } игрока в этом сезоне
     }
 
 # Строка игрока в /stats
 
 season-no-rated-matches = В этом сезоне нет рейтинговых матчей
 season-ends-in = закончится { $when }
-season-wins = { $wins }/{ $matches } побед
-season-wins-rate = { $wins }/{ $matches } побед ({ $rate }%)
-season-standing = { $league } `{ $rating }` · #{ $rank } из { $participants } · { $games }
+season-wins = { NUMBER($wins, useGrouping: 1) }/{ NUMBER($matches, useGrouping: 1) } побед
+season-wins-rate = { NUMBER($wins, useGrouping: 1) }/{ NUMBER($matches, useGrouping: 1) } побед ({ $rate }%)
+season-standing = { $league } `{ $rating }` · #{ $rank } из { NUMBER($participants, useGrouping: 1) } · { $games }
 season-peak = пик `{ $rating }`
 season-top-league = высшая лига
 season-next-league = `{ $left }` до лиги «{ $league }»

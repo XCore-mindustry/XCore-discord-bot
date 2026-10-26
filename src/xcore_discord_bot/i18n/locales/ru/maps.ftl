@@ -86,4 +86,4 @@ maps-list-sort-name = по названию
 maps-list-unknown = Неизвестно
 maps-list-by = автор `{ $author }`
 maps-list-file-author = автор в файле `{ $author }`
-maps-list-reputation = реп. { $reputation }
+maps-list-reputation = реп. { NUMBER($reputation, useGrouping: 1) }

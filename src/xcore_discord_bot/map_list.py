@@ -24,7 +24,7 @@ def _map_rating_part(item: dict[str, str], locale: str) -> str:
         parts.append(f"👎 {dislike_value}")
 
     if reputation.lstrip("-").isdigit():
-        parts.append(t(locale, "maps-list-reputation", reputation=reputation))
+        parts.append(t(locale, "maps-list-reputation", reputation=int(reputation)))
 
     return f" • {' • '.join(parts)}" if parts else ""
 

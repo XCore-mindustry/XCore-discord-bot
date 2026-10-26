@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import get_args
@@ -195,6 +196,7 @@ def test_season_ratings_name_the_leagues_of_the_game() -> None:
         (3, "3 гравці у цьому сезоні"),
         (11, "11 гравців у цьому сезоні"),
         (21, "21 гравець у цьому сезоні"),
+        (1001, f"1{NBSP}001 гравець у цьому сезоні"),
     ],
 )
 def test_season_top_counts_players_in_ukrainian(players: int, footer: str) -> None:
@@ -210,12 +212,16 @@ def test_season_top_counts_players_in_ukrainian(players: int, footer: str) -> No
 
 
 def test_season_info_in_russian() -> None:
+    season = replace(_season(), matches=12345)
     embed = build_season_info_embed(
-        _season(), participants=3, now=datetime.now(UTC), locale="ru"
+        season, participants=1234, now=datetime.now(UTC), locale="ru"
     )
 
     assert embed.title == "📊 Mini-PvP · Сезон 2"
-    assert list(_fields(embed)) == ["Начало", "Конец", "Игроки", "Матчи"]
+    fields = _fields(embed)
+    assert list(fields) == ["Начало", "Конец", "Игроки", "Матчи"]
+    assert fields["Игроки"] == f"`1{NBSP}234`"
+    assert fields["Матчи"] == f"`12{NBSP}345`"
     empty = build_season_top_embed(_season(), [], participants=0, locale="ru")
     assert empty.description == "В этом сезоне ещё никто не играл."
 

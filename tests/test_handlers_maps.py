@@ -365,7 +365,7 @@ async def test_cmd_maps_answers_in_the_users_language() -> None:
                 "name": "Arena",
                 "fileName": "arena.msav",
                 "author": "Alice",
-                "reputation": 3,
+                "reputation": 1500,
             }
         ]
     )
@@ -376,7 +376,7 @@ async def test_cmd_maps_answers_in_the_users_language() -> None:
     sent = interaction.followup.messages[0]
     assert sent["embed"].title == "Карты на `mini-pvp`"
     assert sent["embed"].description == (
-        "• Arena — автор `Alice`\n  `arena.msav` • реп. 3"
+        "• Arena — автор `Alice`\n  `arena.msav` • реп. 1\xa0500"
     )
     assert sent["embed"].footer.text == (
         "Сортировка: по репутации • Страница 1/1 • всего карт: 1 • на странице: 1"

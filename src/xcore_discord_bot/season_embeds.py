@@ -246,10 +246,14 @@ def build_season_info_embed(
             name=t(locale, "season-ended"), value=timestamp(season.ends_at), inline=True
         )
     embed.add_field(
-        name=t(locale, "season-players"), value=f"`{participants}`", inline=True
+        name=t(locale, "season-players"),
+        value=t(locale, "season-count", count=participants),
+        inline=True,
     )
     embed.add_field(
-        name=t(locale, "season-matches"), value=f"`{season.matches}`", inline=True
+        name=t(locale, "season-matches"),
+        value=t(locale, "season-count", count=season.matches),
+        inline=True,
     )
     if season.prizes and season.running:
         embed.add_field(
