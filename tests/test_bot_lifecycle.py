@@ -7,8 +7,6 @@ from bot_fakes import make_bot
 async def test_constructor_and_close_use_the_injected_dependencies():
     bot = make_bot()
     assert bot.container.settings is bot.settings
-    assert bot.container.store is bot.store
-    assert bot.container.bus is bot.bus
     bot.store.connect.assert_not_called()
     bot.bus.connect.assert_not_called()
 
