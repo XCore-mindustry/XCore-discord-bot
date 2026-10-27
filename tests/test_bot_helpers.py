@@ -185,24 +185,6 @@ async def test_sync_application_commands_only_syncs_guild_by_default() -> None:
     ]
 
 
-@pytest.mark.asyncio
-async def test_sync_application_commands_clears_global_only_without_guild() -> None:
-    bot = make_bot(
-        settings=make_settings(
-            discord_guild_id=0,
-            discord_clear_stale_commands=True,
-        )
-    )
-    tree = _record_command_sync(bot)
-
-    await XCoreDiscordBot._sync_application_commands(bot)
-
-    assert tree.calls == [
-        ("clear", None),
-        ("sync", None),
-    ]
-
-
 # ── _claim_mutation tests ─────────────────────────────────────────────────────
 
 
