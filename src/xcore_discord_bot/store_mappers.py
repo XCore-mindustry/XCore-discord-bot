@@ -87,7 +87,7 @@ def player_record_from_doc(doc: Mapping[str, object]) -> PlayerRecord:
             if doc.get("discord_linked_at") is not None
             else None
         ),
-        online=bool(doc.get("online") or False),
+        online=_bool_or_default(doc.get("online"), default=False),
         online_since=(
             _int_or_default(doc.get("online_since"), default=0)
             if doc.get("online_since") is not None
