@@ -106,7 +106,10 @@ async def _change_admin_role(
         )
         return
     linked_players = await bot.store.find_players_by_discord_id(player.discord_id)
-    if not any(str(linked.uuid or "").strip() for linked in linked_players):
+    # Granting needs a game account to sync to; taking the role away never waits for one.
+    if should_have_role and not any(
+        str(linked.uuid or "").strip() for linked in linked_players
+    ):
         await interaction.response.send_message(
             "No linked Mindustry account has a UUID.", ephemeral=True
         )

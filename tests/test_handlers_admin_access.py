@@ -122,6 +122,18 @@ async def test_cmd_add_admin_needs_a_linked_account(player, message) -> None:
 
 
 @pytest.mark.asyncio
+async def test_cmd_remove_admin_takes_the_role_without_a_game_account() -> None:
+    bot = await _bot(dict(TARGET, uuid=""))
+    interaction = _Interaction(id=33)
+
+    await cmd_remove_admin(cast(Any, bot), cast(Any, interaction), 7)
+
+    bot.set_discord_admin_role.assert_awaited_once_with(
+        discord_id="123", should_have_role=False, reason="/admin remove by boss"
+    )
+
+
+@pytest.mark.asyncio
 async def test_cmd_add_admin_reports_a_discord_failure() -> None:
     bot = await _bot()
     bot.set_discord_admin_role.side_effect = discord.HTTPException(

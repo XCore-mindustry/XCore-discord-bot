@@ -155,9 +155,13 @@ class XCoreDiscordBot(commands.Bot):
         guild_obj = discord.Object(id=self.settings.discord_guild_id)
         if self.settings.discord_clear_stale_commands:
             logger.warning("Clearing stale global and guild slash commands before sync")
+            # Clearing empties the tree too; put the commands back for the guild sync.
+            commands = self.tree.get_commands(guild=None)
             self.tree.clear_commands(guild=None)
             await self.tree.sync()
             self.tree.clear_commands(guild=guild_obj)
+            for command in commands:
+                self.tree.add_command(command)
         self.tree.copy_global_to(guild=guild_obj)
         await self.tree.sync(guild=guild_obj)
 

@@ -128,10 +128,15 @@ The bot automatically loads environment variables from a local `.env` file on st
 
 ## Docker smoke run
 
+The bot does not start without the shared `permissions.toml`; mount it at
+`PERMISSIONS_CONFIG_PATH` and set `DISCORD_GUILD_ID` in `.env` to its `discord.guildId`.
+
 ```bash
 cp .env.example .env
-docker compose up --build -d
-docker compose logs -f bot
+docker build -t xcore-discord-bot .
+docker run --rm --env-file .env \
+  -v /path/to/permissions.toml:/config/permissions.toml:ro \
+  xcore-discord-bot
 ```
 
 ## Tests
