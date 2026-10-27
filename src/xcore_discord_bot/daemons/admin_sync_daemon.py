@@ -104,13 +104,11 @@ class AdminSyncDaemon:
         revoked: list[ReconciledAdmin] = []
         skipped: list[SkippedAdmin] = []
 
-        processed_ids: set[str] = set()
         for player in linked_admin_players:
             discord_id = str(player.discord_id or "").strip()
-            if not discord_id:
+            if not discord_id or discord_id in discord_admin_ids:
                 continue
 
-            processed_ids.add(discord_id)
             uuid_value = str(player.uuid or "").strip()
             if not uuid_value:
                 skipped.append(
@@ -120,10 +118,6 @@ class AdminSyncDaemon:
                         "linked admin account is missing UUID",
                     )
                 )
-                continue
-
-            should_be_admin = discord_id in discord_admin_ids
-            if should_be_admin:
                 continue
 
             matched, changed = await self._store.set_admin_access(
@@ -151,9 +145,6 @@ class AdminSyncDaemon:
                 revoked.append(ReconciledAdmin(discord_id, player.pid, player.nickname))
 
         for discord_id in discord_admin_ids:
-            if discord_id in processed_ids:
-                continue
-
             players = await self._store.find_players_by_discord_id(discord_id)
             if not players:
                 logger.warning(
@@ -175,6 +166,9 @@ class AdminSyncDaemon:
                             "linked account is missing UUID",
                         )
                     )
+                    continue
+
+                if player.is_admin and player.admin_source == "DISCORD_ROLE":
                     continue
 
                 matched, changed = await self._store.set_admin_access(

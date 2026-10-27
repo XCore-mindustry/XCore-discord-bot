@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from unittest.mock import AsyncMock
+
 import pytest
+from backends import GameServer, real_bot
 from bot_fakes import make_bot, make_settings
 
 from xcore_discord_bot.daemons.admin_sync_daemon import (
@@ -9,6 +12,49 @@ from xcore_discord_bot.daemons.admin_sync_daemon import (
     SkippedAdmin,
 )
 from xcore_discord_bot.dto import PlayerRecord
+
+
+@pytest.mark.asyncio
+async def test_reconcile_repairs_a_partly_synced_discord_account() -> None:
+    bot, db = await real_bot()
+    server = GameServer(bot)
+    await db["players"].insert_one(
+        {
+            "uuid": "first",
+            "pid": 1,
+            "nickname": "First",
+            "discord_id": "77",
+            "is_admin": True,
+            "admin_source": "DISCORD_ROLE",
+        }
+    )
+    await db["players"].insert_one(
+        {
+            "uuid": "second",
+            "pid": 2,
+            "nickname": "Second",
+            "discord_id": "77",
+            "is_admin": False,
+            "admin_source": "NONE",
+        }
+    )
+    daemon = bot.container.admin_sync_daemon
+    daemon.get_discord_admin_member_ids = AsyncMock(return_value={"77"})
+
+    result = await daemon.reconcile()
+
+    second = await bot.store.find_player_by_uuid("second")
+    assert second is not None and second.is_admin
+    assert second.admin_source == "DISCORD_ROLE"
+    assert result == AdminReconcileResult(
+        discord_admins=1, applied=(ReconciledAdmin("77", 2, "Second"),)
+    )
+    commands = await server.commands("discord-admin-access")
+    assert len(commands) == 1
+    assert commands[0]["player"]["playerUuid"] == "second"
+
+    assert await daemon.reconcile() == AdminReconcileResult(discord_admins=1)
+    assert await server.commands("discord-admin-access") == commands
 
 
 @pytest.mark.asyncio
