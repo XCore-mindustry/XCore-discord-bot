@@ -14,6 +14,7 @@ def test_player_record_from_doc_normalizes_dirty_values() -> None:
             "pid": "42",
             "nickname": "  Vortex  ",
             "uuid": "  uuid-42 ",
+            "last_ip": " 1.2.3.4 ",
             "custom_nickname": "   ",
             "description": "  hello world  ",
             "local_language": "  ru  ",
@@ -34,6 +35,7 @@ def test_player_record_from_doc_normalizes_dirty_values() -> None:
     assert record.pid == 42
     assert record.nickname == "Vortex"
     assert record.uuid == "uuid-42"
+    assert record.ip == "1.2.3.4"
     assert record.custom_nickname is None
     assert record.description == "hello world"
     assert record.language == "ru"

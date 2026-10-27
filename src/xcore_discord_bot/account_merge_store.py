@@ -317,7 +317,7 @@ class AccountMergeStore:
             target_uuid=plan.target_uuid,
             target_pid=plan.surviving_pid,
             target_name=str(target_raw.get("nickname") or "Unknown"),
-            target_ip=str(target_raw.get("ip") or ""),
+            target_ip=str(target_raw.get("last_ip") or ""),
             actor_discord_id=actor_discord_id,
             actor_name=actor_name,
             reason=reason,

@@ -67,8 +67,8 @@ def player_record_from_doc(doc: Mapping[str, object]) -> PlayerRecord:
         nickname=nickname,
         uuid=_normalized_optional_str(doc.get("uuid")),
         username=_normalized_optional_str(doc.get("username")),
-        ip=_normalized_optional_str(doc.get("ip")),
-        last_ip=_normalized_optional_str(doc.get("last_ip")),
+        # The plugin stores a player's IP as last_ip (see XCore-plugin V1 migration).
+        ip=_normalized_optional_str(doc.get("last_ip")),
         custom_nickname=_normalized_optional_str(doc.get("custom_nickname")),
         description=_normalized_optional_str(doc.get("description")),
         language=_normalized_optional_str(doc.get("local_language")),
