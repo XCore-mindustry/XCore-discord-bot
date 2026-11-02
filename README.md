@@ -1,3 +1,5 @@
+> **Archived.** This project now lives in the XCore monorepo, in [`services/discord-bot`](https://github.com/XCore-mindustry/xcore/tree/main/services/discord-bot). Production now runs from the monorepo. Report issues and send pull requests to the monorepo.
+
 # xcore-discord-bot
 
 Standalone Discord bot for XCore transport migration.
